@@ -1,7 +1,9 @@
 from flask import Blueprint, request, jsonify
-from services.chat_service import get_customer_support_response
+from ai_agent.agent import CustomerSupportAgent
 
 chat_bp = Blueprint("chat", __name__)
+
+agent = CustomerSupportAgent()
 
 
 @chat_bp.route("/chat", methods=["POST"])
@@ -16,7 +18,7 @@ def chat():
 
     user_message = data["message"]
 
-    response = get_customer_support_response(user_message)
+    response = agent.process_message(user_message)
 
     return jsonify({
         "user_message": user_message,
