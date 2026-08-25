@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Customer Support</title>
+
+    <link rel="stylesheet" href="chat.css">
+</head>
+
+<body>
+
+    <div class="chat-container">
+
+        <div class="chat-header">
+            <h1>🤖 AI Customer Support</h1>
+            <p>Powered by Ollama Gemma3</p>
+        </div>
+
+        <div id="chat-box" class="chat-box">
+            <div class="message bot">
+                Hello! 👋 Welcome to TechStore Customer Support.
+                How can I help you today?
+            </div>
+        </div>
+
+        <div class="input-area">
+
+            <input
+                type="text"
+                id="message-input"
+                placeholder="Type your message..."
+                autocomplete="off"
+            >
+
+            <button id="send-button">
+                Send
+            </button>
+
+        </div>
+
+    </div>
+
+    <script src="chat.js"></script>
+
+</body>
+</html>
