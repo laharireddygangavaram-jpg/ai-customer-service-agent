@@ -9,8 +9,8 @@ from datetime import datetime
 from dataclasses import dataclass
 from openai import OpenAI
 
-from models import EvaluationResult
-from config import AgentConfig
+from .models import EvaluationResult
+from .config import AgentConfig
 
 logger = logging.getLogger(__name__)
 

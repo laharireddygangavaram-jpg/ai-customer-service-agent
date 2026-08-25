@@ -2,7 +2,6 @@
 """
 Demo script for the AI Customer Service Agent.
 """
-
 import os
 import sys
 import argparse
@@ -11,11 +10,13 @@ from pathlib import Path
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from customer_service_agent import CustomerServiceAgent, setup_logging
-from examples.basic_usage import main as basic_demo
-from examples.workflow_demo import main as workflow_demo
-from examples.performance_report import main as performance_demo
+# Add examples to path
+sys.path.insert(0, str(Path(__file__).parent.parent / "examples"))
 
+from customer_service_agent import CustomerServiceAgent, setup_logging
+from basic_usage import main as basic_demo
+from workflow_demo import main as workflow_demo
+from performance_report import main as performance_demo
 
 def main():
     """Run the demo based on command line arguments."""

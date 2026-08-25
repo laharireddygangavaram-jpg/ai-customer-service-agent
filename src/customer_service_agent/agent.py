@@ -1,23 +1,21 @@
 """
 Main customer service agent implementation.
+Uses Ollama locally instead of OpenAI API.
 """
 
 import json
-import logging
 import time
-from typing import List, Dict, Any, Optional, Callable
+import re
+from typing import List, Dict, Any, Optional
 from datetime import datetime
-from dataclasses import dataclass, field
 
 from openai import OpenAI
 from loguru import logger
 
-from config import AgentConfig
-from models import ConversationMetadata, EvaluationResult, WorkflowStep, WorkflowResult
-from tools import create_tool_registry, ToolRegistry
-from evaluator import PerformanceEvaluator
-from utils import (
-    safe_openai_call,
+from .config import AgentConfig
+from .models import ConversationMetadata
+from .tools import create_tool_registry
+from .utils import (
     format_conversation_history,
     calculate_response_time,
     sanitize_user_input,
@@ -26,484 +24,673 @@ from utils import (
 
 
 class CustomerServiceAgent:
-    """
-    A comprehensive customer service agent with tool integration, memory, and evaluation.
-    """
+    """Customer service agent using local Ollama Gemma3 model."""
 
     def __init__(
-        self, config: Optional[AgentConfig] = None, model: Optional[str] = None
+        self,
+        config: Optional[AgentConfig] = None,
+        model: Optional[str] = None,
     ):
-        """
-        Initialize the customer service agent.
-
-        Args:
-            config: Agent configuration
-            model: Override default model
-        """
         self.config = config or AgentConfig.from_env()
-        self.model = model or self.config.default_model
+        self.model = model or "gemma3:latest"
 
-        # Initialize OpenAI client
         self.client = None
         self.client_available = False
-        self._initialize_openai_client()
+        self._initialize_ollama_client()
 
-        # Initialize core components
         self.tool_registry = create_tool_registry()
-        self.evaluator = (
-            PerformanceEvaluator(self.config, self.client)  # type: ignore
-            if self.client_available
-            else None
-        )
-        self.conversation_logger = ConversationLogger(self.config.log_file)
 
-        # Initialize conversation state
+        # Ollama local evaluation
+        self.evaluator = None
+
+        self.conversation_logger = ConversationLogger(
+            self.config.log_file
+        )
+
         self.system_prompt = self._create_system_prompt()
+
         self.conversation_history: List[Dict[str, Any]] = [
-            {"role": "system", "content": self.system_prompt}
+            {
+                "role": "system",
+                "content": self.system_prompt,
+            }
         ]
+
         self.metadata = ConversationMetadata()
 
-        logger.info(f"CustomerServiceAgent initialized with model: {self.model}")
-        if not self.client_available:
-            logger.warning("Running in demo mode - OpenAI client unavailable")
+        logger.info(
+            f"CustomerServiceAgent initialized with "
+            f"Ollama model: {self.model}"
+        )
 
-    def _initialize_openai_client(self) -> None:
-        """Initialize OpenAI client with error handling."""
+    # =========================================================
+    # OLLAMA CLIENT
+    # =========================================================
+
+    def _initialize_ollama_client(self) -> None:
+        """Initialize Ollama using OpenAI-compatible API."""
+
         try:
-            if not self.config.openai_api_key:
-                raise ValueError("OPENAI_API_KEY not configured")
+            self.client = OpenAI(
+                base_url="http://localhost:11434/v1",
+                api_key="ollama",
+            )
 
-            self.client = OpenAI(api_key=self.config.openai_api_key)
-
-            # Test the client with a simple request
             self.client.models.list()
+
             self.client_available = True
-            logger.info("OpenAI client initialized successfully")
+
+            logger.info(
+                "Ollama client initialized successfully"
+            )
 
         except Exception as e:
-            logger.warning(f"OpenAI client initialization failed: {str(e)}")
+            logger.error(
+                f"Ollama initialization failed: {str(e)}"
+            )
+
             self.client_available = False
             self.client = None
 
+    # =========================================================
+    # SYSTEM PROMPT
+    # =========================================================
+
     def _create_system_prompt(self) -> str:
-        """Create the system prompt for the agent."""
-        return """You are an intelligent customer service agent for TechStore, an online electronics retailer. 
+        """Create system prompt."""
 
-CORE RESPONSIBILITIES:
-1. Answer customer inquiries professionally and empathetically
-2. Look up order information using tools when order numbers are provided
-3. Process refunds and returns for valid requests
-4. Check product inventory and provide accurate availability information
-5. Escalate complex or urgent issues to human agents when appropriate
-6. Provide clear, helpful, and accurate information
+        return """
+You are an intelligent customer service agent for TechStore.
 
-GUIDELINES:
-- Always be polite, patient, and customer-focused
-- Ask for necessary information (like order numbers) when needed
-- Use available tools to provide accurate, up-to-date information
-- Don't make up information - use tools to look things up
-- For angry customers, show empathy and focus on solutions
-- Escalate to human agents for: payment issues, account problems, complex technical issues
+You have access to the following customer service tools:
 
-TOOL USAGE:
-- Use lookup_order for order status inquiries
-- Use process_refund for refund requests (requires order number and reason)
-- Use check_inventory for product availability
-- Use escalate_to_human for issues you cannot resolve
-- Use get_product_catalog to show available products
+1. lookup_order
+   Use this when a customer asks about an order status.
 
-Always provide clear next steps and set realistic expectations."""
+2. process_refund
+   Use this when a customer requests a refund.
 
-    @safe_openai_call(max_retries=3)
-    def _call_openai_api(self, **kwargs) -> Any:
-        """Safe wrapper for OpenAI API calls."""
-        if not self.client_available:
-            from .utils import DemoModeFallback
+3. check_inventory
+   Use this when a customer asks whether a product is available.
 
-            return DemoModeFallback.create_demo_response()
+4. escalate_to_human
+   Use this for urgent, payment, account, or complex issues.
 
-        return self.client.chat.completions.create(**kwargs) # type: ignore
+5. get_product_catalog
+   Use this when the customer asks about available products.
 
-    def _analyze_sentiment(self, message: str) -> Dict[str, Any]:
-        """Analyze sentiment of customer message."""
-        if not self.config.enable_sentiment_analysis:
-            return {"sentiment": "neutral", "score": 0.0}
+IMPORTANT:
+- Never invent order information.
+- Never invent inventory information.
+- Use the appropriate tool whenever possible.
+- Be polite and professional.
+- Clearly explain the result to the customer.
 
-        try:
-            response = self._call_openai_api(
-                model="gpt-3.5-turbo",  # Use smaller model for sentiment to save costs
-                messages=[
-                    {
-                        "role": "user",
-                        "content": f"""Analyze the sentiment of this customer message and return JSON with:
-                    - sentiment: positive, neutral, or negative
-                    - score: number from -1 (very negative) to 1 (very positive)
-                    - emotions: list of detected emotions
-                    
-                    Message: {message}
-                    
-                    Return only valid JSON, no other text.""",
-                    }
-                ],
-                response_format={"type": "json_object"},
-                temperature=0.1,
+You are running locally using Gemma3 through Ollama.
+"""
+
+    # =========================================================
+    # OLLAMA API
+    # =========================================================
+
+    def _call_ollama(self, **kwargs) -> Any:
+        """Call local Ollama model."""
+
+        if self.client is None or not self.client_available:
+            raise RuntimeError(
+                "Ollama is not available. "
+                "Make sure Ollama is running."
             )
 
-            if not self.client_available:
-                sentiment_data = {"sentiment": "neutral", "score": 0.0, "emotions": []}
-            else:
-                sentiment_data = json.loads(response.choices[0].message.content)
-
-            # Store sentiment score for analytics
-            if "score" in sentiment_data:
-                self.metadata.sentiment_scores.append(sentiment_data["score"])
-
-            return sentiment_data
+        try:
+            return self.client.chat.completions.create(
+                **kwargs
+            )
 
         except Exception as e:
-            logger.error(f"Sentiment analysis failed: {str(e)}")
-            return {"sentiment": "neutral", "score": 0.0, "error": str(e)}
+            print("\n" + "=" * 60)
+            print(f"❌ OLLAMA ERROR: {type(e).__name__}")
+            print(f"❌ MESSAGE: {str(e)}")
+            print("=" * 60 + "\n")
 
-    def chat(self, user_message: str, customer_id: Optional[str] = None) -> str:
+            logger.error(
+                f"Ollama API error: {type(e).__name__}: {str(e)}"
+            )
+
+            raise
+
+    # =========================================================
+    # SENTIMENT
+    # =========================================================
+
+    def _analyze_sentiment(
+        self,
+        message: str,
+    ) -> Dict[str, Any]:
+        """Simple local sentiment analysis."""
+
+        message_lower = message.lower()
+
+        negative_words = [
+            "angry",
+            "broken",
+            "refund",
+            "bad",
+            "terrible",
+            "worst",
+            "urgent",
+            "problem",
+            "issue",
+            "hate",
+            "not working",
+            "charged twice",
+        ]
+
+        positive_words = [
+            "thank",
+            "thanks",
+            "good",
+            "great",
+            "excellent",
+            "happy",
+            "awesome",
+        ]
+
+        negative_count = sum(
+            word in message_lower
+            for word in negative_words
+        )
+
+        positive_count = sum(
+            word in message_lower
+            for word in positive_words
+        )
+
+        if negative_count > positive_count:
+            sentiment = "negative"
+            score = -0.5
+        elif positive_count > negative_count:
+            sentiment = "positive"
+            score = 0.5
+        else:
+            sentiment = "neutral"
+            score = 0.0
+
+        self.metadata.sentiment_scores.append(score)
+
+        return {
+            "sentiment": sentiment,
+            "score": score,
+        }
+
+    # =========================================================
+    # TOOL DETECTION
+    # =========================================================
+
+    def _detect_tool_call(
+        self,
+        message: str,
+    ) -> Optional[Dict[str, Any]]:
         """
-        Process user message and return agent response.
-
-        Args:
-            user_message: The user's message
-            customer_id: Optional customer identifier
-
-        Returns:
-            The agent's response
+        Detect the required customer service tool
+        from the customer's message.
         """
-        start_time = time.time()
+
+        text = message.lower()
+
+        # -----------------------------------------------------
+        # ORDER LOOKUP
+        # -----------------------------------------------------
+
+        order_match = re.search(
+            r"\bORD[-\s]?\d{5}\b",
+            message,
+            re.IGNORECASE,
+        )
+
+        if order_match:
+            order_number = (
+                order_match.group(0)
+                .upper()
+                .replace(" ", "-")
+            )
+
+            if (
+                "order" in text
+                or "status" in text
+                or "delivery" in text
+                or "track" in text
+                or "where" in text
+            ):
+                return {
+                    "name": "lookup_order",
+                    "arguments": {
+                        "order_number": order_number
+                    },
+                }
+
+        # -----------------------------------------------------
+        # REFUND
+        # -----------------------------------------------------
+
+        if (
+            "refund" in text
+            or "money back" in text
+            or "return" in text
+        ):
+            if order_match:
+                order_number = (
+                    order_match.group(0)
+                    .upper()
+                    .replace(" ", "-")
+                )
+
+                return {
+                    "name": "process_refund",
+                    "arguments": {
+                        "order_number": order_number,
+                        "reason": message,
+                    },
+                }
+
+        # -----------------------------------------------------
+        # INVENTORY
+        # -----------------------------------------------------
+
+        inventory_words = [
+            "in stock",
+            "available",
+            "availability",
+            "stock",
+            "do you have",
+        ]
+
+        if any(word in text for word in inventory_words):
+
+            products = [
+                "headphones",
+                "wireless headphones",
+                "smart watch",
+                "smartwatch",
+                "laptop",
+                "phone case",
+            ]
+
+            for product in products:
+                if product in text:
+                    return {
+                        "name": "check_inventory",
+                        "arguments": {
+                            "product_name": product
+                        },
+                    }
+
+        # -----------------------------------------------------
+        # PRODUCT CATALOG
+        # -----------------------------------------------------
+
+        catalog_words = [
+            "products",
+            "catalog",
+            "what do you sell",
+            "what products",
+            "show products",
+        ]
+
+        if any(word in text for word in catalog_words):
+            return {
+                "name": "get_product_catalog",
+                "arguments": {},
+            }
+
+        # -----------------------------------------------------
+        # HUMAN ESCALATION
+        # -----------------------------------------------------
+
+        urgent_words = [
+            "charged twice",
+            "payment issue",
+            "account problem",
+            "speak to human",
+            "human agent",
+            "manager",
+            "urgent",
+        ]
+
+        if any(word in text for word in urgent_words):
+            priority = "high"
+
+            if "urgent" in text:
+                priority = "urgent"
+
+            return {
+                "name": "escalate_to_human",
+                "arguments": {
+                    "issue_description": message,
+                    "priority": priority,
+                },
+            }
+
+        return None
+
+    # =========================================================
+    # EXECUTE TOOL
+    # =========================================================
+
+    def _execute_tool(
+        self,
+        tool_name: str,
+        arguments: Dict[str, Any],
+    ) -> str:
+        """Execute a registered customer service tool."""
 
         try:
             logger.info(
-                f"Processing message from customer {customer_id}: {user_message[:100]}..."
+                f"Executing tool: {tool_name} "
+                f"with args: {arguments}"
             )
 
-            # Update metadata
+            tool_function = (
+                self.tool_registry.get_function(tool_name)
+            )
+
+            result = tool_function(**arguments)
+
+            self.metadata.total_tool_calls += 1
+
+            if not isinstance(result, str):
+                result = json.dumps(result)
+
+            logger.info(
+                f"Tool executed successfully: {tool_name}"
+            )
+
+            return result
+
+        except Exception as e:
+
+            logger.error(
+                f"Tool execution failed: "
+                f"{tool_name}: {str(e)}"
+            )
+
+            return json.dumps(
+                {
+                    "success": False,
+                    "error": str(e),
+                }
+            )
+
+    # =========================================================
+    # CHAT
+    # =========================================================
+
+    def chat(
+        self,
+        user_message: str,
+        customer_id: Optional[str] = None,
+    ) -> str:
+        """Process customer message."""
+
+        start_time = time.time()
+
+        try:
+
+            logger.info(
+                f"Processing message from customer "
+                f"{customer_id}: {user_message[:100]}..."
+            )
+
             if customer_id:
                 self.metadata.customer_id = customer_id
 
-            # Sanitize input
-            sanitized_message = sanitize_user_input(user_message)
-
-            # Analyze sentiment if enabled
-            sentiment_data = self._analyze_sentiment(sanitized_message)
-
-            # Add user message to conversation history
-            self.conversation_history.append(
-                {"role": "user", "content": sanitized_message}
+            sanitized_message = sanitize_user_input(
+                user_message
             )
 
-            # Get agent response (may involve tool calls)
+            self._analyze_sentiment(
+                sanitized_message
+            )
+
+            self.conversation_history.append(
+                {
+                    "role": "user",
+                    "content": sanitized_message,
+                }
+            )
+
             response = self._get_agent_response()
 
-            # Update metadata
             self.metadata.total_interactions += 1
-            self.metadata.last_interaction = datetime.now().isoformat()
 
-            # Calculate response time
-            response_time = calculate_response_time(start_time)
+            self.metadata.last_interaction = (
+                datetime.now().isoformat()
+            )
 
-            # Evaluate interaction if enabled
-            if self.config.enable_evaluation and self.evaluator:
-                self.evaluator.evaluate_interaction(
-                    user_input=sanitized_message,
-                    agent_response=response,
-                    interaction_id=self.metadata.total_interactions,
-                    sentiment_score=sentiment_data.get("score"),
-                    response_time=response_time,
-                )
+            response_time = calculate_response_time(
+                start_time
+            )
 
-            # Log the interaction
             self.conversation_logger.log_interaction(
                 user_input=sanitized_message,
                 agent_response=response,
                 customer_id=customer_id,
             )
 
-            logger.info(f"Message processed successfully in {response_time:.2f}s")
+            logger.info(
+                f"Message processed successfully "
+                f"in {response_time:.2f}s"
+            )
+
             return response
 
         except Exception as e:
-            logger.error(f"Error in chat: {str(e)}")
-            error_response = "I apologize, but I encountered an error processing your request. Please try again or contact our support team if the issue persists."
 
-            # Log the error
-            self.conversation_logger.log_interaction(
-                user_input=user_message,
-                agent_response=error_response,
-                customer_id=customer_id,
+            print("\n" + "=" * 60)
+            print(
+                f"❌ ACTUAL ERROR: {type(e).__name__}"
+            )
+            print(
+                f"❌ MESSAGE: {str(e)}"
+            )
+            print("=" * 60 + "\n")
+
+            logger.exception(
+                "Error while processing customer message"
             )
 
-            return error_response
+            return (
+                "I apologize, but I encountered an error "
+                "processing your request. "
+                "Please make sure Ollama is running "
+                "and Gemma3 is available."
+            )
+
+    # =========================================================
+    # AGENT RESPONSE
+    # =========================================================
 
     def _get_agent_response(self) -> str:
-        """Get response from agent, handling tool calls if needed."""
-        # Format conversation history to manage token usage
-        formatted_history = format_conversation_history(
-            self.conversation_history, self.config.max_conversation_history
+        """
+        Generate response using Ollama and execute
+        customer service tools when required.
+        """
+
+        # -----------------------------------------------------
+        # Detect required tool
+        # -----------------------------------------------------
+
+        user_message = ""
+
+        for message in reversed(
+            self.conversation_history
+        ):
+            if message.get("role") == "user":
+                user_message = message.get(
+                    "content",
+                    "",
+                )
+                break
+
+        tool_call = self._detect_tool_call(
+            user_message
         )
 
-        # Initial API call
-        response = self._call_openai_api(
+        # -----------------------------------------------------
+        # Execute tool
+        # -----------------------------------------------------
+
+        tool_result = None
+
+        if tool_call:
+
+            tool_name = tool_call["name"]
+            arguments = tool_call["arguments"]
+
+            tool_result = self._execute_tool(
+                tool_name,
+                arguments,
+            )
+
+            # Add tool result to conversation
+            self.conversation_history.append(
+                {
+                    "role": "system",
+                    "content": (
+                        f"Tool '{tool_name}' returned:\n"
+                        f"{tool_result}\n\n"
+                        "Use this information to answer "
+                        "the customer's request. "
+                        "Do not mention internal tool names."
+                    ),
+                }
+            )
+
+        # -----------------------------------------------------
+        # Prepare conversation
+        # -----------------------------------------------------
+
+        formatted_history = (
+            format_conversation_history(
+                self.conversation_history,
+                self.config.max_conversation_history,
+            )
+        )
+
+        # -----------------------------------------------------
+        # Ask Gemma3
+        # -----------------------------------------------------
+
+        response = self._call_ollama(
             model=self.model,
             messages=formatted_history,
-            tools=self.tool_registry.get_all_schemas(),
-            tool_choice="auto",
             temperature=self.config.default_temperature,
         )
 
-        response_message = response.choices[0].message
-        tool_calls = getattr(response_message, "tool_calls", [])
-
-        # If no tool calls, return direct response
-        if not tool_calls:
-            final_response = getattr(
-                response_message,
-                "content",
-                "I apologize, but I couldn't generate a response.",
-            )
-            self.conversation_history.append(
-                {"role": "assistant", "content": final_response}
-            )
-            return final_response
-
-        # Handle tool calls
-        self.conversation_history.append(response_message) # type: ignore
-        tool_results = []
-
-        for tool_call in tool_calls:
-            function_name = tool_call.function.name
-            function_args = json.loads(tool_call.function.arguments)
-
-            logger.info(f"Executing tool: {function_name} with args: {function_args}")
-
-            try:
-                # Execute the tool
-                tool_function = self.tool_registry.get_function(function_name)
-                function_response = tool_function(**function_args)
-
-                # Add tool response to conversation
-                self.conversation_history.append(
-                    {
-                        "role": "tool",
-                        "tool_call_id": tool_call.id,
-                        "name": function_name,
-                        "content": function_response,
-                    }
-                )
-
-                tool_results.append(
-                    {
-                        "name": function_name,
-                        "arguments": function_args,
-                        "result": function_response,
-                        "success": True,
-                    }
-                )
-
-                self.metadata.total_tool_calls += 1
-
-            except Exception as e:
-                error_message = f"Error executing {function_name}: {str(e)}"
-                logger.error(error_message)
-
-                self.conversation_history.append(
-                    {
-                        "role": "tool",
-                        "tool_call_id": tool_call.id,
-                        "name": function_name,
-                        "content": json.dumps({"error": error_message}),
-                    }
-                )
-
-                tool_results.append(
-                    {
-                        "name": function_name,
-                        "arguments": function_args,
-                        "result": error_message,
-                        "success": False,
-                    }
-                )
-
-        # Get final response after tool execution
-        final_response = self._call_openai_api(
-            model=self.model,
-            messages=self.conversation_history,
-            temperature=self.config.default_temperature,
+        response_message = (
+            response.choices[0].message
         )
 
-        final_message = final_response.choices[0].message.content
+        final_response = (
+            response_message.content
+            or "I apologize, but I couldn't generate "
+               "a response."
+        )
+
         self.conversation_history.append(
-            {"role": "assistant", "content": final_message}
+            {
+                "role": "assistant",
+                "content": final_response,
+            }
         )
 
-        return final_message
+        return final_response
 
-    def execute_workflow(
-        self, workflow_steps: List[WorkflowStep]
-    ) -> List[WorkflowResult]:
-        """
-        Execute a multi-step workflow.
+    # =========================================================
+    # AGENT INFORMATION
+    # =========================================================
 
-        Args:
-            workflow_steps: List of workflow steps to execute
+    def get_agent_info(
+        self,
+    ) -> Dict[str, Any]:
+        """Return agent information."""
 
-        Returns:
-            List of workflow results
-        """
-        logger.info(f"Executing workflow with {len(workflow_steps)} steps")
-        results = []
-
-        for i, step in enumerate(workflow_steps):
-            logger.info(f"Step {i+1}/{len(workflow_steps)}: {step.name}")
-
-            try:
-                response = self.chat(step.instruction)
-
-                result = WorkflowResult(
-                    step_number=i + 1,
-                    step_name=step.name,
-                    instruction=step.instruction,
-                    response=response,
-                    success=True,
+        return {
+            "agent": "CustomerServiceAgent",
+            "status": (
+                "Ready"
+                if self.client_available
+                else "Ollama Offline"
+            ),
+            "model": self.model,
+            "backend": "Ollama",
+            "local": True,
+            "available_tools": [
+                tool.get("function", {}).get(
+                    "name",
+                    "unknown",
                 )
-
-                results.append(result)
-                logger.info(f"Step {i+1} completed successfully")
-
-            except Exception as e:
-                logger.error(f"Step {i+1} failed: {str(e)}")
-                results.append(
-                    WorkflowResult(
-                        step_number=i + 1,
-                        step_name=step.name,
-                        instruction=step.instruction,
-                        response=f"Error: {str(e)}",
-                        success=False,
-                        error=str(e),
-                    )
-                )
-
-        return results
-
-    def get_performance_report(self, last_n_interactions: Optional[int] = 50) -> str:
-        """
-        Generate a comprehensive performance report.
-
-        Args:
-            last_n_interactions: Number of recent interactions to include
-
-        Returns:
-            Formatted performance report
-        """
-        if not self.evaluator or not self.evaluator.evaluation_results:
-            return "No evaluation data available yet."
-
-        from .utils import format_performance_report
-
-        report_data = self.evaluator.generate_performance_report(last_n_interactions)
-        return format_performance_report(report_data)
-
-    def get_conversation_summary(self) -> str:
-        """Generate a summary of the current conversation."""
-        summary_prompt = """Please provide a concise summary of our conversation so far, including:
-        - The main topics discussed
-        - Any issues or questions the customer had
-        - Solutions or information provided
-        - Current status or next steps
-        
-        Keep it to 3-4 sentences maximum."""
-
-        return self.chat(summary_prompt)
-
-    def get_conversation_history(self, formatted: bool = True) -> List[Dict[str, Any]]:
-        """
-        Get the conversation history.
-
-        Args:
-            formatted: If True, exclude system messages and tool calls
-
-        Returns:
-            Conversation history
-        """
-        if not formatted:
-            return self.conversation_history.copy()
-
-        # Return only user and assistant messages for display
-        return [
-            msg
-            for msg in self.conversation_history
-            if msg["role"] in ["user", "assistant"] and "content" in msg
-        ]
-
-    def reset_conversation(self, keep_system_prompt: bool = True) -> None:
-        """
-        Reset the conversation history.
-
-        Args:
-            keep_system_prompt: Whether to keep the system prompt
-        """
-        logger.info("Resetting conversation")
-
-        if keep_system_prompt:
-            self.conversation_history = [
-                {"role": "system", "content": self.system_prompt}
-            ]
-        else:
-            self.conversation_history = []
-
-        # Reset metadata but keep customer_id if set
-        current_customer_id = self.metadata.customer_id
-        self.metadata = ConversationMetadata()
-        self.metadata.customer_id = current_customer_id
-
-        logger.info("Conversation reset complete")
-
-    def save_conversation(self, filepath: str) -> None:
-        """Save conversation history to file."""
-        data = {
-            "conversation_history": self.conversation_history,
-            "metadata": self.metadata.to_dict(),
-            "saved_at": datetime.now().isoformat(),
+                for tool in self.tool_registry.get_all_schemas()
+            ],
+            "total_interactions": (
+                self.metadata.total_interactions
+            ),
+            "total_tool_calls": (
+                self.metadata.total_tool_calls
+            ),
         }
 
-        with open(filepath, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
+    # =========================================================
+    # CONVERSATION SUMMARY
+    # =========================================================
 
-        logger.info(f"Conversation saved to {filepath}")
+    def get_conversation_summary(
+        self,
+    ) -> Dict[str, Any]:
+        """Return conversation summary."""
 
-    def load_conversation(self, filepath: str) -> None:
-        """Load conversation history from file."""
-        try:
-            with open(filepath, "r", encoding="utf-8") as f:
-                data = json.load(f)
+        return {
+            "customer_id": (
+                self.metadata.customer_id
+            ),
+            "total_interactions": (
+                self.metadata.total_interactions
+            ),
+            "total_tool_calls": (
+                self.metadata.total_tool_calls
+            ),
+            "messages": len(
+                self.conversation_history
+            ),
+            "last_interaction": (
+                self.metadata.last_interaction
+            ),
+        }
 
-            self.conversation_history = data.get("conversation_history", [])
-            self.metadata = ConversationMetadata.from_dict(data.get("metadata", {}))
+    # =========================================================
+    # PERFORMANCE REPORT
+    # =========================================================
 
-            logger.info(f"Conversation loaded from {filepath}")
+    def get_performance_report(
+        self,
+    ) -> Dict[str, Any]:
+        """Return local performance information."""
 
-        except Exception as e:
-            logger.error(f"Error loading conversation: {str(e)}")
-            raise
-
-    @property
-    def is_demo_mode(self) -> bool:
-        """Check if agent is running in demo mode."""
-        return not self.client_available
-
-    def get_agent_info(self) -> Dict[str, Any]:
-        """Get information about the agent instance."""
         return {
             "model": self.model,
-            "demo_mode": self.is_demo_mode,
-            "total_interactions": self.metadata.total_interactions,
-            "total_tool_calls": self.metadata.total_tool_calls,
-            "customer_id": self.metadata.customer_id,
-            "available_tools": list(self.tool_registry.tools.keys()),
+            "backend": "Ollama",
+            "total_interactions": (
+                self.metadata.total_interactions
+            ),
+            "total_tool_calls": (
+                self.metadata.total_tool_calls
+            ),
+            "sentiment_samples": len(
+                self.metadata.sentiment_scores
+            ),
+            "status": (
+                "Ready"
+                if self.client_available
+                else "Ollama Offline"
+            ),
         }
