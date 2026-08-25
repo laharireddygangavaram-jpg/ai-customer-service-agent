@@ -1,18 +1,22 @@
+from customer_service_agent import CustomerServiceAgent
+
+# Create one agent instance
+agent = CustomerServiceAgent()
+
+
 def get_customer_support_response(user_message):
+    """
+    Send customer message to the actual AI Customer Service Agent.
+    The agent uses Ollama Gemma3 and available tools.
+    """
 
-    user_message = user_message.lower()
+    try:
+        response = agent.chat(user_message)
+        return response
 
-    if "hello" in user_message or "hi" in user_message:
-        return "Hello! Welcome to our customer support. How can I help you?"
+    except Exception as e:
+        print(f"Error in AI agent: {e}")
 
-    elif "order" in user_message:
-        return "Sure! Please provide your order ID so I can help you."
-
-    elif "refund" in user_message:
-        return "I can help you with your refund request. Please provide your order ID."
-
-    elif "thank" in user_message:
-        return "You're welcome! Is there anything else I can help you with?"
-
-    else:
-        return "I'm sorry, I couldn't understand your request. Please provide more details."
+        return (
+            "Sorry, I am unable to process your request right now."
+        )
