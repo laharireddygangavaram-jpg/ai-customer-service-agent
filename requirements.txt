@@ -13,3 +13,4 @@ types-requests
 pre-commit
 fastapi
 uvicorn
+Flask
