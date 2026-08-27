@@ -1,47 +1,150 @@
+# frontend/index.html
+
+```html
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Customer Support</title>
 
-    <link rel="stylesheet" href="chat.css">
+    <title>TechStore AI Customer Support</title>
+
+    <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
-    <div class="chat-container">
+    <div class="main-container">
 
-        <div class="chat-header">
-            <h1>🤖 AI Customer Support</h1>
+        <header class="header">
+            <h1>🤖 TechStore AI Customer Support</h1>
             <p>Powered by Ollama Gemma3</p>
-        </div>
+        </header>
 
-        <div id="chat-box" class="chat-box">
-            <div class="message bot">
-                Hello! 👋 Welcome to TechStore Customer Support.
-                How can I help you today?
+
+        <section class="card">
+
+            <h2>💬 Customer Support</h2>
+
+            <div id="chat-box" class="chat-box">
+
+                <div class="message bot">
+                    Hello! 👋 Welcome to TechStore Customer Support.
+                    How can I help you today?
+                </div>
+
             </div>
-        </div>
 
-        <div class="input-area">
+            <div class="input-area">
 
-            <input
-                type="text"
-                id="message-input"
-                placeholder="Type your message..."
-                autocomplete="off"
-            >
+                <input
+                    type="text"
+                    id="message-input"
+                    placeholder="Ask about your order, products, refund..."
+                    autocomplete="off"
+                >
 
-            <button id="send-button">
-                Send
+                <button id="send-button">
+                    Send
+                </button>
+
+            </div>
+
+        </section>
+
+
+        <section class="card">
+
+            <div class="section-header">
+
+                <h2>🛍️ TechStore Products</h2>
+
+                <button id="load-products-button">
+                    Load Products
+                </button>
+
+            </div>
+
+            <div id="products-container" class="products-container">
+                <p>Click "Load Products" to view available products.</p>
+            </div>
+
+        </section>
+
+
+        <section class="card">
+
+            <h2>🛒 Place Order</h2>
+
+            <div class="form-grid">
+
+                <input
+                    type="text"
+                    id="customer-name"
+                    placeholder="Your name"
+                >
+
+                <input
+                    type="email"
+                    id="customer-email"
+                    placeholder="Your email"
+                >
+
+                <input
+                    type="number"
+                    id="product-id"
+                    placeholder="Product ID"
+                    min="1"
+                >
+
+                <input
+                    type="number"
+                    id="quantity"
+                    placeholder="Quantity"
+                    value="1"
+                    min="1"
+                >
+
+            </div>
+
+            <button id="place-order-button">
+                Place Order
             </button>
 
-        </div>
+            <div id="order-result"></div>
+
+        </section>
+
+
+        <section class="card">
+
+            <h2>📦 Track Order</h2>
+
+            <div class="track-area">
+
+                <input
+                    type="text"
+                    id="order-number"
+                    placeholder="Enter Order ID"
+                >
+
+                <button id="track-order-button">
+                    Track Order
+                </button>
+
+            </div>
+
+            <div id="tracking-result"></div>
+
+        </section>
 
     </div>
+
 
     <script src="chat.js"></script>
 
 </body>
+
 </html>
+

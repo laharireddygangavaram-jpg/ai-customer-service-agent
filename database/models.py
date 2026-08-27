@@ -55,3 +55,101 @@ def get_chat_history(customer_id):
     connection.close()
 
     return history
+def add_product(name, description, price, stock):
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute(
+        """
+        INSERT INTO products (name, description, price, stock)
+        VALUES (?, ?, ?, ?)
+        """,
+        (name, description, price, stock)
+    )
+
+    connection.commit()
+    product_id = cursor.lastrowid
+    connection.close()
+
+    return product_id
+
+
+def get_all_products():
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute(
+        """
+        SELECT * FROM products
+        ORDER BY id
+        """
+    )
+
+    products = cursor.fetchall()
+    connection.close()
+
+    return products
+
+
+def create_order(
+    order_number,
+    customer_name,
+    customer_email,
+    product_id,
+    quantity,
+    total_amount
+):
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute(
+        """
+        INSERT INTO orders
+        (
+            order_number,
+            customer_name,
+            customer_email,
+            product_id,
+            quantity,
+            total_amount
+        )
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (
+            order_number,
+            customer_name,
+            customer_email,
+            product_id,
+            quantity,
+            total_amount
+        )
+    )
+
+    connection.commit()
+    order_id = cursor.lastrowid
+    connection.close()
+
+    return order_id
+
+
+def get_order(order_number):
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute(
+        """
+        SELECT
+            orders.*,
+            products.name AS product_name,
+            products.description AS product_description
+        FROM orders
+        JOIN products ON orders.product_id = products.id
+        WHERE orders.order_number = ?
+        """,
+        (order_number,)
+    )
+
+    order = cursor.fetchone()
+    connection.close()
+
+    return order
