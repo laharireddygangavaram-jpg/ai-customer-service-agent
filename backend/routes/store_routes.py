@@ -1,6 +1,5 @@
 from flask import Blueprint, request, jsonify
-from database.models import get_all_products, create_order, get_order
-from database.database import get_connection
+from database.models import get_all_products, create_order, get_order, cancel_order
 import uuid
 
 store_bp = Blueprint("store", __name__)
@@ -109,3 +108,25 @@ def track_order(order_number):
     return jsonify({
         "order": dict(order)
     })
+@store_bp.route("/orders/<order_number>/cancel", methods=["PUT"])
+def cancel_order_route(order_number):
+
+    try:
+        cancelled = cancel_order(order_number)
+
+        if not cancelled:
+            return jsonify({
+                "message": "Order cannot be cancelled or order not found"
+            }), 400
+
+        return jsonify({
+            "message": "Order cancelled successfully",
+            "order_number": order_number,
+            "status": "Cancelled"
+        }), 200
+
+    except Exception as e:
+        return jsonify({
+            "error": "Unable to cancel order",
+            "message": str(e)
+        }), 500

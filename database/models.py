@@ -55,6 +55,8 @@ def get_chat_history(customer_id):
     connection.close()
 
     return history
+
+
 def add_product(name, description, price, stock):
     connection = get_connection()
     cursor = connection.cursor()
@@ -153,3 +155,26 @@ def get_order(order_number):
     connection.close()
 
     return order
+
+
+def cancel_order(order_number):
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute(
+        """
+        UPDATE orders
+        SET status = 'Cancelled'
+        WHERE order_number = ?
+        AND status NOT IN ('Cancelled', 'Delivered')
+        """,
+        (order_number,)
+    )
+
+    connection.commit()
+
+    cancelled = cursor.rowcount > 0
+
+    connection.close()
+
+    return cancelled
