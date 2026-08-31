@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
+from database.database import get_connection
 from database.models import get_all_products, create_order, get_order, cancel_order
 import uuid
-
 store_bp = Blueprint("store", __name__)
 
 
