@@ -74,16 +74,26 @@ def add_product(name, description, price, stock):
     connection.close()
 
     return product_id
-
-
 def get_all_products():
     connection = get_connection()
     cursor = connection.cursor()
 
     cursor.execute(
         """
-        SELECT * FROM products
-        ORDER BY id
+        SELECT
+            products.id,
+            products.name,
+            products.description,
+            products.price,
+            products.stock,
+            products.store_id,
+            products.image_url,
+            stores.name AS store_name,
+            stores.image_url AS store_image
+        FROM products
+        LEFT JOIN stores
+            ON products.store_id = stores.id
+        ORDER BY products.store_id, products.id
         """
     )
 
@@ -91,7 +101,6 @@ def get_all_products():
     connection.close()
 
     return products
-
 
 def create_order(
     order_number,

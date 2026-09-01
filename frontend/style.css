@@ -1,6 +1,4 @@
- frontend/style.css
 
-css
 * {
     box-sizing: border-box;
     margin: 0;
@@ -32,6 +30,10 @@ body {
     color: #666;
 }
 
+/* =========================
+   COMMON CARD
+   ========================= */
+
 .card {
     background: white;
     padding: 25px;
@@ -44,6 +46,10 @@ body {
     margin-bottom: 18px;
 }
 
+/* =========================
+   CHAT
+   ========================= */
+
 .chat-box {
     height: 350px;
     overflow-y: auto;
@@ -54,23 +60,60 @@ body {
     background: #fafafa;
 }
 
+/* Chat message */
 .message {
     padding: 10px 14px;
     margin-bottom: 10px;
     border-radius: 8px;
     max-width: 80%;
     line-height: 1.5;
+    word-wrap: break-word;
+    overflow-wrap: anywhere;
 }
 
+/* User message */
 .message.user {
     background: #dbeafe;
     margin-left: auto;
+    margin-right: 0;
+    color: #111827;
 }
 
+/* Bot message */
 .message.bot {
     background: #e5e7eb;
     margin-right: auto;
+    margin-left: 0;
+    color: #111827;
 }
+
+/* Remove unwanted spacing inside bot response */
+.message.bot p {
+    margin: 4px 0;
+}
+
+.message.bot h3 {
+    margin: 6px 0;
+}
+
+.message.bot a {
+    display: inline-block;
+    margin: 0;
+    padding: 0;
+}
+
+/* Images inside chat */
+.message.bot img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin: 8px 0;
+    border-radius: 8px;
+}
+
+/* =========================
+   INPUT AREA
+   ========================= */
 
 .input-area,
 .track-area {
@@ -105,6 +148,10 @@ button:disabled {
     cursor: not-allowed;
 }
 
+/* =========================
+   PRODUCTS
+   ========================= */
+
 .section-header {
     display: flex;
     justify-content: space-between;
@@ -120,7 +167,7 @@ button:disabled {
 
 .product-card {
     border: 1px solid #ddd;
-    padding: 18px;
+    padding: 15px;
     border-radius: 10px;
     background: #fafafa;
 }
@@ -139,12 +186,61 @@ button:disabled {
     width: 100%;
 }
 
+/* =========================
+   STORE
+   ========================= */
+
+.store-image {
+    width: 60px;
+    height: 60px;
+    object-fit: cover;
+    border-radius: 8px;
+}
+
+.product-image {
+    width: 100px;
+    height: 100px;
+    object-fit: cover;
+    border-radius: 8px;
+    display: block;
+    margin: 0 auto 12px;
+}
+
+.store-section {
+    margin-bottom: 25px;
+}
+
+.store-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 15px;
+}
+
+.store-products {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+}
+
+/* =========================
+   ORDER FORM
+   ========================= */
+
 .form-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 12px;
     margin-bottom: 15px;
 }
+
+#place-order-button {
+    width: 100%;
+}
+
+/* =========================
+   ORDER / TRACKING RESULT
+   ========================= */
 
 .success,
 .tracking-card {
@@ -160,9 +256,117 @@ button:disabled {
     margin-top: 8px;
 }
 
-#place-order-button {
-    width: 100%;
+/* =========================
+   PRODUCT COMPARISON
+   ========================= */
+
+.comparison-info {
+    color: #666;
+    margin-bottom: 15px;
 }
+
+.compare-controls {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.compare-controls input {
+    flex: 1;
+}
+
+#comparison-result {
+    overflow-x: auto;
+}
+
+.comparison-table {
+    margin-top: 15px;
+}
+
+.comparison-table h3 {
+    margin-bottom: 15px;
+}
+
+.comparison-table table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+}
+
+.comparison-table th,
+.comparison-table td {
+    border: 1px solid #ddd;
+    padding: 10px;
+    text-align: left;
+}
+
+.comparison-table th {
+    background: #f1f5f9;
+    font-weight: bold;
+}
+
+.comparison-table tr:hover {
+    background: #f8fafc;
+}
+
+.best-deal {
+    font-weight: bold;
+    border: 2px solid #22c55e !important;
+}
+
+.best-recommendation {
+    margin-top: 20px;
+    padding: 18px;
+    border-radius: 10px;
+    background: #f0fdf4;
+    border: 2px solid #22c55e;
+}
+
+.best-recommendation h3 {
+    margin-bottom: 12px;
+}
+
+.best-recommendation p {
+    margin: 7px 0;
+}
+
+/* =========================
+   CHAT PRODUCT COMPARISON
+   ========================= */
+
+.chat-comparison-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 12px;
+    font-size: 13px;
+}
+
+.chat-comparison-table th,
+.chat-comparison-table td {
+    border: 1px solid #ddd;
+    padding: 7px;
+    text-align: center;
+}
+
+.chat-comparison-table th {
+    background: #f3f4f6;
+}
+
+.chat-best-deal {
+    font-weight: bold;
+}
+
+.chat-recommendation {
+    margin-top: 12px;
+    padding: 10px;
+    border-radius: 7px;
+    background: #f0fdf4;
+    border: 1px solid #22c55e;
+}
+
+/* =========================
+   MOBILE
+   ========================= */
 
 @media (max-width: 600px) {
 
@@ -185,5 +389,21 @@ button:disabled {
         align-items: stretch;
     }
 
+    .compare-controls {
+        flex-direction: column;
+    }
+
+    .comparison-table {
+        font-size: 13px;
+    }
+
+    .comparison-table th,
+    .comparison-table td {
+        padding: 7px;
+    }
+
+    .message {
+        max-width: 95%;
+    }
 }
 

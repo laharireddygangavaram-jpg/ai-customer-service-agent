@@ -1,148 +1,238 @@
-# frontend/index.html
 
-```html
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
+
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
 
     <title>TechStore AI Customer Support</title>
 
-    <link rel="stylesheet" href="style.css">
+    <link
+        rel="stylesheet"
+        href="style.css"
+    >
+
 </head>
+
 
 <body>
 
-    <div class="main-container">
-
-        <header class="header">
-            <h1>🤖 TechStore AI Customer Support</h1>
-            <p>Powered by Ollama Gemma3</p>
-        </header>
+<div class="main-container">
 
 
-        <section class="card">
+    <!-- =====================================
+         HEADER
+    ====================================== -->
 
-            <h2>💬 Customer Support</h2>
+    <header class="header">
 
-            <div id="chat-box" class="chat-box">
+        <h1>
+            🤖 TechStore AI Customer Support
+        </h1>
 
-                <div class="message bot">
-                    Hello! 👋 Welcome to TechStore Customer Support.
-                    How can I help you today?
-                </div>
+        <p>
+            Powered by Ollama Gemma3
+        </p>
 
-            </div>
-
-            <div class="input-area">
-
-                <input
-                    type="text"
-                    id="message-input"
-                    placeholder="Ask about your order, products, refund..."
-                    autocomplete="off"
-                >
-
-                <button id="send-button">
-                    Send
-                </button>
-
-            </div>
-
-        </section>
+    </header>
 
 
-        <section class="card">
 
-            <div class="section-header">
+    <!-- =====================================
+         AI CUSTOMER SUPPORT
+    ====================================== -->
 
-                <h2>🛍️ TechStore Products</h2>
+    <section class="card">
 
-                <button id="load-products-button">
-                    Load Products
-                </button>
+        <h2>
+            💬 AI Customer Support
+        </h2>
+
+
+        <div
+            id="chat-box"
+            class="chat-box"
+        >
+
+            <div class="message bot">
+
+                Hello! 👋 Welcome to TechStore
+                Customer Support.
+
+                How can I help you today?
 
             </div>
 
-            <div id="products-container" class="products-container">
-                <p>Click "Load Products" to view available products.</p>
-            </div>
-
-        </section>
+        </div>
 
 
-        <section class="card">
 
-            <h2>🛒 Place Order</h2>
+        <div class="input-area">
 
-            <div class="form-grid">
+            <input
+                type="text"
+                id="message-input"
+                placeholder="Ask me about products, prices, recommendations..."
+                autocomplete="off"
+            >
 
-                <input
-                    type="text"
-                    id="customer-name"
-                    placeholder="Your name"
-                >
-
-                <input
-                    type="email"
-                    id="customer-email"
-                    placeholder="Your email"
-                >
-
-                <input
-                    type="number"
-                    id="product-id"
-                    placeholder="Product ID"
-                    min="1"
-                >
-
-                <input
-                    type="number"
-                    id="quantity"
-                    placeholder="Quantity"
-                    value="1"
-                    min="1"
-                >
-
-            </div>
-
-            <button id="place-order-button">
-                Place Order
+            <button
+                type="button"
+                id="send-button"
+            >
+                Send
             </button>
 
-            <div id="order-result"></div>
+        </div>
 
-        </section>
-
-
-        <section class="card">
-
-            <h2>📦 Track Order</h2>
-
-            <div class="track-area">
-
-                <input
-                    type="text"
-                    id="order-number"
-                    placeholder="Enter Order ID"
-                >
-
-                <button id="track-order-button">
-                    Track Order
-                </button>
-
-            </div>
-
-            <div id="tracking-result"></div>
-
-        </section>
-
-    </div>
+    </section>
 
 
-    <script src="chat.js"></script>
+
+    <!-- =====================================
+         PRODUCTS HEADER
+    ====================================== -->
+
+    <section class="card">
+
+        <div class="section-header">
+
+            <h2>
+                🛍️ Products
+            </h2>
+
+
+            <button
+                type="button"
+                id="load-products-button"
+            >
+                Load Products
+            </button>
+
+        </div>
+
+    </section>
+
+
+
+    <!-- =====================================
+         AMAZON
+    ====================================== -->
+
+    <section class="card store-card">
+
+        <h2>
+            🛒 Amazon
+        </h2>
+
+
+        <div
+            id="amazon-products"
+            class="products-container"
+        >
+
+            <p>
+                Click "Load Products" to view
+                Amazon products.
+            </p>
+
+        </div>
+
+    </section>
+
+
+
+    <!-- =====================================
+         FLIPKART
+    ====================================== -->
+
+    <section class="card store-card">
+
+        <h2>
+            🛍️ Flipkart
+        </h2>
+
+
+        <div
+            id="flipkart-products"
+            class="products-container"
+        >
+
+            <p>
+                Click "Load Products" to view
+                Flipkart products.
+            </p>
+
+        </div>
+
+    </section>
+
+
+
+    <!-- =====================================
+         MEESHO
+    ====================================== -->
+
+    <section class="card store-card">
+
+        <h2>
+            📦 Meesho
+        </h2>
+
+
+        <div
+            id="meesho-products"
+            class="products-container"
+        >
+
+            <p>
+                Click "Load Products" to view
+                Meesho products.
+            </p>
+
+        </div>
+
+    </section>
+
+
+
+    <!-- =====================================
+         MYNTRA
+    ====================================== -->
+
+    <section class="card store-card">
+
+        <h2>
+            👗 Myntra
+        </h2>
+
+
+        <div
+            id="myntra-products"
+            class="products-container"
+        >
+
+            <p>
+                Click "Load Products" to view
+                Myntra products.
+            </p>
+
+        </div>
+
+    </section>
+
+
+</div>
+
+
+
+<script src="chat.js"></script>
 
 </body>
 

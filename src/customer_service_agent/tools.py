@@ -1,378 +1,1819 @@
+
 """
-Tool implementations for the customer service agent.
+Customer Service Agent - Tools
+Database tools for products, orders, inventory, refunds and support.
 """
 
-import json
-import logging
-from typing import Dict, Any, Optional, List
+import os
+import re
+import sqlite3
+import uuid
 from datetime import datetime
-from dataclasses import dataclass
-from tenacity import retry, stop_after_attempt, wait_exponential
-
-logger = logging.getLogger(__name__)
 
 
-@dataclass
+# ============================================================
+# DATABASE PATH
+# ============================================================
+
+BASE_DIR = os.path.dirname(
+    os.path.dirname(
+        os.path.dirname(
+            os.path.abspath(__file__)
+        )
+    )
+)
+
+DATABASE_PATH = os.path.join(
+    BASE_DIR,
+    "database",
+    "customer_support.db"
+)
+
+
+# ============================================================
+# TOOL REGISTRY
+# ============================================================
+
 class ToolRegistry:
-    """Registry for all available tools."""
-
-    tools: Dict[str, Any] = None
-
-    def __post_init__(self):
-        if self.tools is None:
-            self.tools = {}
-
-    def register(self, name: str, function: callable, schema: Dict[str, Any]):
-        """Register a tool with its function and schema."""
-        self.tools[name] = {"function": function, "schema": schema}
-
-    def get_function(self, name: str) -> callable:
-        """Get tool function by name."""
-        if name not in self.tools:
-            raise ValueError(f"Tool '{name}' not found")
-        return self.tools[name]["function"]
-
-    def get_schema(self, name: str) -> Dict[str, Any]:
-        """Get tool schema by name."""
-        if name not in self.tools:
-            raise ValueError(f"Tool '{name}' not found")
-        return self.tools[name]["schema"]
-
-    def get_all_schemas(self) -> List[Dict[str, Any]]:
-        """Get schemas for all tools."""
-        return [
-            {"type": "function", "function": {**schema, "name": name}}
-            for name, tool_info in self.tools.items()
-            for schema in [tool_info["schema"]]
-        ]
-
-
-class CustomerServiceTools:
-    """Implementation of customer service tools."""
 
     def __init__(self):
-        self.orders_db = self._initialize_orders_db()
-        self.inventory_db = self._initialize_inventory_db()
-        self.refund_requests = []
+        self.tools = {}
+        self.schemas = {}
 
-    def _initialize_orders_db(self) -> Dict[str, Dict[str, Any]]:
-        """Initialize simulated orders database."""
-        return {
-            "ORD-12345": {
-                "order_number": "ORD-12345",
-                "customer_name": "John Doe",
-                "product": "Wireless Headphones Pro",
-                "status": "Delivered",
-                "order_date": "2025-09-15",
-                "delivery_date": "2025-09-18",
-                "amount": 129.99,
-                "tracking_number": "TRK-789012",
-                "customer_email": "john.doe@example.com",
-            },
-            "ORD-67890": {
-                "order_number": "ORD-67890",
-                "customer_name": "Jane Smith",
-                "product": "Smart Watch Ultra",
-                "status": "In Transit",
-                "order_date": "2025-10-05",
-                "estimated_delivery": "2025-10-10",
-                "amount": 399.99,
-                "tracking_number": "TRK-456789",
-                "customer_email": "jane.smith@example.com",
-            },
-            "ORD-11111": {
-                "order_number": "ORD-11111",
-                "customer_name": "Bob Johnson",
-                "product": "Phone Case",
-                "status": "Processing",
-                "order_date": "2025-10-08",
-                "estimated_delivery": "2025-10-15",
-                "amount": 29.99,
-                "tracking_number": None,
-                "customer_email": "bob.johnson@example.com",
-            },
-        }
+    def register(
+        self,
+        name,
+        function,
+        description="",
+        parameters=None
+    ):
 
-    def _initialize_inventory_db(self) -> Dict[str, Dict[str, Any]]:
-        """Initialize simulated inventory database."""
-        return {
-            "wireless headphones": {
-                "in_stock": True,
-                "quantity": 45,
-                "price": 129.99,
-                "sku": "WH-001",
-                "category": "Audio",
-            },
-            "smart watch": {
-                "in_stock": True,
-                "quantity": 12,
-                "price": 399.99,
-                "sku": "SW-001",
-                "category": "Wearables",
-            },
-            "laptop": {
-                "in_stock": False,
-                "quantity": 0,
-                "price": 1299.99,
-                "restock_date": "2025-10-15",
-                "sku": "LP-001",
-                "category": "Computers",
-            },
-            "phone case": {
-                "in_stock": True,
-                "quantity": 250,
-                "price": 29.99,
-                "sku": "PC-001",
-                "category": "Accessories",
-            },
-        }
+        self.tools[name] = function
 
-    @retry(
-        stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10)
-    )
-    def lookup_order(self, order_number: str) -> str:
-        """Look up order details by order number."""
-        logger.info(f"Looking up order: {order_number}")
-
-        order = self.orders_db.get(order_number)
-        if order:
-            return json.dumps({"success": True, "order": order})
-        else:
-            return json.dumps(
-                {
-                    "success": False,
-                    "error": "Order not found",
-                    "message": f"No order found with number {order_number}",
+        self.schemas[name] = {
+            "type": "function",
+            "function": {
+                "name": name,
+                "description": description,
+                "parameters": parameters or {
+                    "type": "object",
+                    "properties": {}
                 }
-            )
-
-    @retry(
-        stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10)
-    )
-    def process_refund(
-        self, order_number: str, reason: str, amount: Optional[float] = None
-    ) -> str:
-        """Process a refund for an order."""
-        logger.info(f"Processing refund for order: {order_number}")
-
-        # First lookup the order
-        order_data = json.loads(self.lookup_order(order_number))
-
-        if not order_data.get("success"):
-            return json.dumps(
-                {"success": False, "message": "Cannot process refund - order not found"}
-            )
-
-        # Process refund
-        order = order_data["order"]
-        refund_amount = amount if amount is not None else order.get("amount", 0)
-
-        refund_request = {
-            "refund_id": f"REF-{datetime.now().strftime('%Y%m%d%H%M%S')}",
-            "order_number": order_number,
-            "refund_amount": refund_amount,
-            "reason": reason,
-            "status": "Approved",
-            "processing_time": "3-5 business days",
-            "timestamp": datetime.now().isoformat(),
+            }
         }
 
-        self.refund_requests.append(refund_request)
+    def get_tool(self, name):
+        return self.tools.get(name)
 
-        return json.dumps(
-            {
-                "success": True,
-                **refund_request,
-                "message": "Refund has been approved and will be credited to your original payment method",
-            }
+    def get_all_schemas(self):
+        return list(self.schemas.values())
+
+
+# ============================================================
+# CUSTOMER SERVICE TOOLS
+# ============================================================
+
+class CustomerServiceTools:
+
+    def __init__(self):
+        pass
+
+
+    # ========================================================
+    # DATABASE CONNECTION
+    # ========================================================
+
+    def get_connection(self):
+
+        connection = sqlite3.connect(
+            DATABASE_PATH
         )
 
-    @retry(
-        stop=stop_after_attempt(2), wait=wait_exponential(multiplier=1, min=2, max=5)
-    )
-    def check_inventory(self, product_name: str) -> str:
-        """Check if a product is in stock."""
-        logger.info(f"Checking inventory for: {product_name}")
+        connection.row_factory = sqlite3.Row
 
-        product_key = product_name.lower()
-        for key, inventory_data in self.inventory_db.items():
-            if key in product_key or product_key in key:
-                return json.dumps({"success": True, "product": key, **inventory_data})
+        return connection
 
-        return json.dumps(
-            {
+
+    # ========================================================
+    # LOOKUP ORDER
+    # ========================================================
+
+    def lookup_order(
+        self,
+        order_number=None
+    ):
+
+        if not order_number:
+
+            return {
                 "success": False,
-                "in_stock": False,
-                "message": "Product not found in our inventory",
+                "message": "Please provide an order number."
             }
+
+        connection = None
+
+        try:
+
+            connection = self.get_connection()
+
+            cursor = connection.cursor()
+
+            cursor.execute(
+                """
+                SELECT
+                    o.id,
+                    o.order_number,
+                    o.customer_name,
+                    o.customer_email,
+                    o.product_id,
+                    o.quantity,
+                    o.total_amount,
+                    o.status,
+                    o.created_at,
+                    p.name AS product_name,
+                    p.brand AS brand
+                FROM orders o
+                LEFT JOIN products p
+                    ON o.product_id = p.id
+                WHERE UPPER(o.order_number) = UPPER(?)
+                LIMIT 1
+                """,
+                (
+                    order_number.strip(),
+                )
+            )
+
+            row = cursor.fetchone()
+
+            if row is None:
+
+                return {
+                    "success": False,
+                    "message": (
+                        f"Order '{order_number}' "
+                        "was not found."
+                    )
+                }
+
+            return {
+                "success": True,
+                "order_number": row["order_number"],
+                "customer_name": row["customer_name"],
+                "customer_email": row["customer_email"],
+                "product_id": row["product_id"],
+                "product_name": row["product_name"],
+                "brand": row["brand"],
+                "quantity": row["quantity"],
+                "total_amount": row["total_amount"],
+                "status": row["status"],
+                "created_at": row["created_at"]
+            }
+
+        except Exception as e:
+
+            return {
+                "success": False,
+                "message": str(e)
+            }
+
+        finally:
+
+            if connection:
+                connection.close()
+
+
+    # ========================================================
+    # CANCEL ORDER
+    # ========================================================
+
+    def cancel_order(
+        self,
+        order_number=None
+    ):
+
+        if not order_number:
+
+            return {
+                "success": False,
+                "message": "Please provide an order number."
+            }
+
+        connection = None
+
+        try:
+
+            connection = self.get_connection()
+
+            cursor = connection.cursor()
+
+            cursor.execute(
+                """
+                SELECT
+                    order_number,
+                    product_id,
+                    quantity,
+                    status
+                FROM orders
+                WHERE UPPER(order_number) = UPPER(?)
+                LIMIT 1
+                """,
+                (
+                    order_number.strip(),
+                )
+            )
+
+            row = cursor.fetchone()
+
+            if row is None:
+
+                return {
+                    "success": False,
+                    "message": (
+                        f"Order '{order_number}' "
+                        "was not found."
+                    )
+                }
+
+            status = str(
+                row["status"] or ""
+            ).lower()
+
+            if status in [
+                "cancelled",
+                "canceled"
+            ]:
+
+                return {
+                    "success": False,
+                    "message": "This order is already cancelled."
+                }
+
+            if status in [
+                "delivered",
+                "refunded"
+            ]:
+
+                return {
+                    "success": False,
+                    "message": (
+                        f"Order cannot be cancelled "
+                        f"because its status is "
+                        f"'{row['status']}'."
+                    )
+                }
+
+            cursor.execute(
+                """
+                UPDATE orders
+                SET status = 'Cancelled'
+                WHERE UPPER(order_number) = UPPER(?)
+                """,
+                (
+                    order_number.strip(),
+                )
+            )
+
+            cursor.execute(
+                """
+                UPDATE products
+                SET stock = stock + ?
+                WHERE id = ?
+                """,
+                (
+                    row["quantity"],
+                    row["product_id"]
+                )
+            )
+
+            connection.commit()
+
+            return {
+                "success": True,
+                "order_number": row["order_number"],
+                "status": "Cancelled"
+            }
+
+        except Exception as e:
+
+            if connection:
+                connection.rollback()
+
+            return {
+                "success": False,
+                "message": str(e)
+            }
+
+        finally:
+
+            if connection:
+                connection.close()
+
+
+    # ========================================================
+    # PROCESS REFUND
+    # ========================================================
+
+    def process_refund(
+        self,
+        order_number=None
+    ):
+
+        if not order_number:
+
+            return {
+                "success": False,
+                "message": "Please provide an order number."
+            }
+
+        connection = None
+
+        try:
+
+            connection = self.get_connection()
+
+            cursor = connection.cursor()
+
+            cursor.execute(
+                """
+                SELECT
+                    order_number,
+                    total_amount,
+                    status
+                FROM orders
+                WHERE UPPER(order_number) = UPPER(?)
+                LIMIT 1
+                """,
+                (
+                    order_number.strip(),
+                )
+            )
+
+            row = cursor.fetchone()
+
+            if row is None:
+
+                return {
+                    "success": False,
+                    "message": (
+                        f"Order '{order_number}' "
+                        "was not found."
+                    )
+                }
+
+            status = str(
+                row["status"] or ""
+            ).lower()
+
+            if status == "refunded":
+
+                return {
+                    "success": False,
+                    "message": "This order is already refunded."
+                }
+
+            if status not in [
+                "cancelled",
+                "canceled"
+            ]:
+
+                return {
+                    "success": False,
+                    "message": (
+                        "Refund can be processed "
+                        "only for a cancelled order."
+                    )
+                }
+
+            cursor.execute(
+                """
+                UPDATE orders
+                SET status = 'Refunded'
+                WHERE UPPER(order_number) = UPPER(?)
+                """,
+                (
+                    order_number.strip(),
+                )
+            )
+
+            connection.commit()
+
+            return {
+                "success": True,
+                "order_number": row["order_number"],
+                "refund_amount": row["total_amount"],
+                "status": "Refunded"
+            }
+
+        except Exception as e:
+
+            if connection:
+                connection.rollback()
+
+            return {
+                "success": False,
+                "message": str(e)
+            }
+
+        finally:
+
+            if connection:
+                connection.close()
+
+
+    # ========================================================
+    # NORMALIZE PRODUCT TEXT
+    # ========================================================
+
+    def _normalize_product_text(
+        self,
+        text
+    ):
+
+        text = str(text or "").lower()
+
+        text = re.sub(
+            r"[^a-z0-9\s]",
+            " ",
+            text
         )
 
-    def escalate_to_human(self, issue_description: str, priority: str) -> str:
-        """Escalate the issue to a human agent."""
-        logger.info(f"Escalating issue with priority: {priority}")
-
-        ticket_id = f"TICKET-{datetime.now().strftime('%Y%m%d%H%M%S')}"
-
-        # In a real implementation, this would create a ticket in your support system
-        escalation_data = {
-            "escalated": True,
-            "ticket_id": ticket_id,
-            "priority": priority,
-            "issue": issue_description,
-            "timestamp": datetime.now().isoformat(),
-            "estimated_response_time": (
-                "30 minutes" if priority in ["high", "urgent"] else "2 hours"
-            ),
-        }
-
-        return json.dumps(
-            {
-                **escalation_data,
-                "message": f"Your issue has been escalated to our support team. Ticket ID: {ticket_id}",
-            }
+        text = re.sub(
+            r"\s+",
+            " ",
+            text
         )
 
-    def get_product_catalog(self) -> str:
-        """Get the current product catalog."""
-        catalog = {
-            "products": [
-                {
-                    "name": "Wireless Headphones Pro",
-                    "category": "Audio",
-                    "price": 129.99,
-                    "description": "High-quality wireless headphones with noise cancellation",
-                },
-                {
-                    "name": "Smart Watch Ultra",
-                    "category": "Wearables",
-                    "price": 399.99,
-                    "description": "Advanced smartwatch with health monitoring features",
-                },
-                {
-                    "name": "Gaming Laptop Pro",
-                    "category": "Computers",
-                    "price": 1299.99,
-                    "description": "High-performance gaming laptop",
-                },
-                {
-                    "name": "Phone Case Premium",
-                    "category": "Accessories",
-                    "price": 29.99,
-                    "description": "Durable protective phone case",
-                },
+        return text.strip()
+
+
+    # ========================================================
+    # CATEGORY ALIASES
+    # ========================================================
+
+    def _get_category_aliases(self):
+
+        return {
+
+            "monitor": [
+                "monitor",
+                "monitors"
+            ],
+
+            "smart_tv": [
+                "smart tv",
+                "smart tvs",
+                "smart television",
+                "smart televisions"
+            ],
+
+            "shoe": [
+                "shoe",
+                "shoes",
+                "footwear",
+                "sneaker",
+                "sneakers"
+            ],
+
+            "phone": [
+                "phone",
+                "phones",
+                "mobile",
+                "mobiles",
+                "smartphone",
+                "smartphones"
+            ],
+
+            "laptop": [
+                "laptop",
+                "laptops",
+                "notebook",
+                "notebooks"
+            ],
+
+            "tablet": [
+                "tablet",
+                "tablets"
+            ],
+
+            "headphone": [
+                "headphone",
+                "headphones",
+                "earphone",
+                "earphones",
+                "earbud",
+                "earbuds"
             ]
         }
 
-        return json.dumps(catalog)
+
+    # ========================================================
+    # FIND CATEGORY
+    # ========================================================
+
+    def _find_category(
+        self,
+        query
+    ):
+
+        normalized = self._normalize_product_text(
+            query
+        )
+
+        aliases = self._get_category_aliases()
+
+        for category, words in aliases.items():
+
+            for word in words:
+
+                normalized_word = (
+                    self._normalize_product_text(
+                        word
+                    )
+                )
+
+                if re.search(
+                    r"\b"
+                    + re.escape(normalized_word)
+                    + r"\b",
+                    normalized
+                ):
+
+                    return category
+
+        return None
 
 
-def create_tool_registry() -> ToolRegistry:
-    """Create and configure the tool registry."""
+    # ========================================================
+    # PRODUCT MATCH
+    # ========================================================
+
+    def _product_matches(
+        self,
+        product,
+        query
+    ):
+
+        query_normalized = (
+            self._normalize_product_text(
+                query
+            )
+        )
+
+        if not query_normalized:
+            return True
+
+        product_name = (
+            self._normalize_product_text(
+                product["name"]
+            )
+        )
+
+        brand = (
+            self._normalize_product_text(
+                product["brand"] or ""
+            )
+        )
+
+        description = (
+            self._normalize_product_text(
+                product["description"] or ""
+            )
+        )
+
+        category = self._find_category(
+            query
+        )
+
+        # ----------------------------------------------------
+        # CATEGORY MATCH
+        # ----------------------------------------------------
+
+        if category:
+
+            aliases = self._get_category_aliases()
+
+            category_words = aliases.get(
+                category,
+                []
+            )
+
+            for word in category_words:
+
+                normalized_word = (
+                    self._normalize_product_text(
+                        word
+                    )
+                )
+
+                pattern = (
+                    r"\b"
+                    + re.escape(normalized_word)
+                    + r"\b"
+                )
+
+                if (
+                    re.search(
+                        pattern,
+                        product_name
+                    )
+                    or
+                    re.search(
+                        pattern,
+                        description
+                    )
+                ):
+
+                    return True
+
+        # ----------------------------------------------------
+        # EXACT NAME
+        # ----------------------------------------------------
+
+        if query_normalized == product_name:
+            return True
+
+        # ----------------------------------------------------
+        # QUERY INSIDE PRODUCT NAME
+        # ----------------------------------------------------
+
+        if query_normalized in product_name:
+            return True
+
+        # ----------------------------------------------------
+        # EXACT BRAND
+        # ----------------------------------------------------
+
+        if query_normalized == brand:
+            return True
+
+        # ----------------------------------------------------
+        # WORD MATCH
+        # ----------------------------------------------------
+
+        query_words = [
+            word
+            for word in query_normalized.split()
+            if len(word) > 2
+        ]
+
+        if not query_words:
+            return False
+
+        searchable_text = (
+            product_name
+            + " "
+            + brand
+            + " "
+            + description
+        )
+
+        for word in query_words:
+
+            if not re.search(
+                r"\b"
+                + re.escape(word)
+                + r"\b",
+                searchable_text
+            ):
+
+                return False
+
+        return True
+
+
+    # ========================================================
+    # PLACE ORDER
+    # ========================================================
+
+    def place_order(
+        self,
+        product_name,
+        quantity=1,
+        customer_name="Guest Customer",
+        customer_email="guest@example.com"
+    ):
+
+        if not product_name:
+
+            return {
+                "success": False,
+                "message": "Please provide a product name."
+            }
+
+        try:
+
+            quantity = int(quantity)
+
+        except Exception:
+
+            quantity = 1
+
+        if quantity <= 0:
+
+            return {
+                "success": False,
+                "message": (
+                    "Quantity must be greater than zero."
+                )
+            }
+
+        connection = None
+
+        try:
+
+            connection = self.get_connection()
+
+            cursor = connection.cursor()
+
+            cursor.execute(
+                """
+                SELECT
+                    id,
+                    name,
+                    brand,
+                    price,
+                    stock,
+                    description
+                FROM products
+                """
+            )
+
+            rows = cursor.fetchall()
+
+            selected_product = None
+
+            normalized_query = (
+                self._normalize_product_text(
+                    product_name
+                )
+            )
+
+            # EXACT MATCH
+            for row in rows:
+
+                normalized_name = (
+                    self._normalize_product_text(
+                        row["name"]
+                    )
+                )
+
+                if normalized_name == normalized_query:
+
+                    selected_product = row
+                    break
+
+            # PARTIAL/CATEGORY MATCH
+            if selected_product is None:
+
+                for row in rows:
+
+                    if self._product_matches(
+                        row,
+                        product_name
+                    ):
+
+                        selected_product = row
+                        break
+
+            if selected_product is None:
+
+                return {
+                    "success": False,
+                    "message": (
+                        f"No product found for "
+                        f"'{product_name}'."
+                    )
+                }
+
+            product_id = selected_product["id"]
+
+            real_product_name = (
+                selected_product["name"]
+            )
+
+            brand = selected_product["brand"]
+
+            unit_price = float(
+                selected_product["price"]
+            )
+
+            previous_stock = int(
+                selected_product["stock"]
+            )
+
+            if previous_stock < quantity:
+
+                return {
+                    "success": False,
+                    "message": (
+                        f"Only {previous_stock} "
+                        f"unit(s) available for "
+                        f"'{real_product_name}'."
+                    )
+                }
+
+            total_amount = (
+                unit_price * quantity
+            )
+
+            remaining_stock = (
+                previous_stock - quantity
+            )
+
+            order_number = (
+                "ORD-"
+                + datetime.now().strftime(
+                    "%Y%m%d%H%M%S"
+                )
+                + "-"
+                + uuid.uuid4().hex[:4].upper()
+            )
+
+            cursor.execute(
+                """
+                UPDATE products
+                SET stock = ?
+                WHERE id = ?
+                """,
+                (
+                    remaining_stock,
+                    product_id
+                )
+            )
+
+            cursor.execute(
+                """
+                INSERT INTO orders (
+                    order_number,
+                    customer_name,
+                    customer_email,
+                    product_id,
+                    quantity,
+                    total_amount,
+                    status
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    order_number,
+                    customer_name,
+                    customer_email,
+                    product_id,
+                    quantity,
+                    total_amount,
+                    "Confirmed"
+                )
+            )
+
+            connection.commit()
+
+            return {
+                "success": True,
+                "order_number": order_number,
+                "product_id": product_id,
+                "product_name": real_product_name,
+                "brand": brand,
+                "quantity": quantity,
+                "unit_price": unit_price,
+                "total_amount": total_amount,
+                "previous_stock": previous_stock,
+                "remaining_stock": remaining_stock,
+                "status": "Confirmed",
+                "customer_name": customer_name,
+                "customer_email": customer_email
+            }
+
+        except Exception as e:
+
+            if connection:
+                connection.rollback()
+
+            return {
+                "success": False,
+                "message": str(e)
+            }
+
+        finally:
+
+            if connection:
+                connection.close()
+
+
+    # ========================================================
+    # CHECK INVENTORY
+    # ========================================================
+
+    def check_inventory(
+        self,
+        product_name
+    ):
+
+        if not product_name:
+
+            return {
+                "success": False,
+                "message": "Please provide a product name."
+            }
+
+        connection = None
+
+        try:
+
+            connection = self.get_connection()
+
+            cursor = connection.cursor()
+
+            cursor.execute(
+                """
+                SELECT
+                    id,
+                    name,
+                    brand,
+                    price,
+                    stock,
+                    description
+                FROM products
+                """
+            )
+
+            rows = cursor.fetchall()
+
+            selected_product = None
+
+            normalized_query = (
+                self._normalize_product_text(
+                    product_name
+                )
+            )
+
+            for row in rows:
+
+                normalized_name = (
+                    self._normalize_product_text(
+                        row["name"]
+                    )
+                )
+
+                if normalized_name == normalized_query:
+
+                    selected_product = row
+                    break
+
+            if selected_product is None:
+
+                for row in rows:
+
+                    if self._product_matches(
+                        row,
+                        product_name
+                    ):
+
+                        selected_product = row
+                        break
+
+            if selected_product is None:
+
+                return {
+                    "success": False,
+                    "message": (
+                        f"No product found for "
+                        f"'{product_name}'."
+                    )
+                }
+
+            return {
+                "success": True,
+                "product_id": selected_product["id"],
+                "product_name": selected_product["name"],
+                "brand": selected_product["brand"],
+                "price": selected_product["price"],
+                "stock": selected_product["stock"]
+            }
+
+        except Exception as e:
+
+            return {
+                "success": False,
+                "message": str(e)
+            }
+
+        finally:
+
+            if connection:
+                connection.close()
+
+
+    # ========================================================
+    # PRODUCT CATALOG
+    # ========================================================
+
+    def get_product_catalog(
+        self,
+        query=""
+    ):
+
+        connection = None
+
+        try:
+
+            connection = self.get_connection()
+
+            cursor = connection.cursor()
+
+            cursor.execute(
+                """
+                SELECT
+                    id,
+                    name,
+                    description,
+                    price,
+                    stock,
+                    store_id,
+                    image_url,
+                    brand,
+                    rating,
+                    review_count,
+                    delivery_days,
+                    discount,
+                    product_url
+                FROM products
+                ORDER BY id
+                """
+            )
+
+            rows = cursor.fetchall()
+
+            products = []
+
+            for row in rows:
+
+                if self._product_matches(
+                    row,
+                    query
+                ):
+
+                    products.append(
+                        {
+                            "id": row["id"],
+                            "name": row["name"],
+                            "description": row["description"],
+                            "price": row["price"],
+                            "stock": row["stock"],
+                            "store_id": row["store_id"],
+                            "image_url": row["image_url"],
+                            "brand": row["brand"],
+                            "rating": row["rating"],
+                            "review_count": row["review_count"],
+                            "delivery_days": row["delivery_days"],
+                            "discount": row["discount"],
+                            "product_url": row["product_url"]
+                        }
+                    )
+
+            return {
+                "success": True,
+                "query": query,
+                "count": len(products),
+                "products": products
+            }
+
+        except Exception as e:
+
+            return {
+                "success": False,
+                "message": str(e),
+                "products": []
+            }
+
+        finally:
+
+            if connection:
+                connection.close()
+
+
+    # ========================================================
+    # STORE NAME
+    # ========================================================
+
+    def _get_store_name(
+        self,
+        store_id
+    ):
+
+        store_names = {
+            5: "Amazon",
+            6: "Flipkart",
+            7: "Meesho",
+            8: "Myntra"
+        }
+
+        try:
+            store_id = int(store_id)
+        except Exception:
+            pass
+
+        return store_names.get(
+            store_id,
+            "Online Store"
+        )
+
+
+    # ========================================================
+    # GET PRODUCTS FOR COMPARISON
+    # ========================================================
+
+    def _get_comparison_products(
+        self,
+        product_name
+    ):
+
+        connection = None
+
+        try:
+
+            connection = self.get_connection()
+
+            cursor = connection.cursor()
+
+            cursor.execute(
+                """
+                SELECT
+                    id,
+                    name,
+                    description,
+                    price,
+                    stock,
+                    store_id,
+                    image_url,
+                    brand,
+                    rating,
+                    review_count,
+                    delivery_days,
+                    discount,
+                    product_url
+                FROM products
+                ORDER BY
+                    price ASC,
+                    rating DESC
+                """
+            )
+
+            rows = cursor.fetchall()
+
+            matches = []
+
+            normalized_query = (
+                self._normalize_product_text(
+                    product_name
+                )
+            )
+
+            # ------------------------------------------------
+            # FIRST: EXACT / VERY CLOSE NAME MATCH
+            # ------------------------------------------------
+
+            for row in rows:
+
+                normalized_name = (
+                    self._normalize_product_text(
+                        row["name"]
+                    )
+                )
+
+                # Remove store suffix such as:
+                # - Flipkart
+                # - Meesho
+
+                clean_name = re.sub(
+                    r"\s*-\s*(amazon|flipkart|meesho|myntra)\s*$",
+                    "",
+                    normalized_name
+                ).strip()
+
+                if (
+                    normalized_name == normalized_query
+                    or clean_name == normalized_query
+                    or normalized_query in clean_name
+                ):
+
+                    matches.append(row)
+
+
+            # ------------------------------------------------
+            # SECOND: PRODUCT MATCH
+            # ------------------------------------------------
+
+            if not matches:
+
+                for row in rows:
+
+                    if self._product_matches(
+                        row,
+                        product_name
+                    ):
+
+                        matches.append(row)
+
+
+            # ------------------------------------------------
+            # REMOVE DUPLICATES
+            # ------------------------------------------------
+
+            unique_products = []
+
+            seen = set()
+
+            for row in matches:
+
+                key = (
+                    row["id"],
+                    row["store_id"]
+                )
+
+                if key in seen:
+                    continue
+
+                seen.add(key)
+
+                unique_products.append(
+                    {
+                        "id": row["id"],
+                        "name": row["name"],
+                        "description": row["description"],
+                        "price": row["price"],
+                        "stock": row["stock"],
+                        "store_id": row["store_id"],
+                        "store_name": self._get_store_name(
+                            row["store_id"]
+                        ),
+                        "image_url": row["image_url"],
+                        "brand": row["brand"],
+                        "rating": row["rating"],
+                        "review_count": row["review_count"],
+                        "delivery_days": row["delivery_days"],
+                        "discount": row["discount"],
+                        "product_url": row["product_url"]
+                    }
+                )
+
+            return unique_products
+
+        except Exception:
+
+            return []
+
+        finally:
+
+            if connection:
+                connection.close()
+
+
+    # ========================================================
+    # COMPARE PRODUCTS
+    #
+    # Supports:
+    #
+    # 1. compare Boat Rockerz 450
+    #
+    #    -> Same product across stores
+    #
+    # 2. compare HP 15 Laptop and Dell Inspiron 15
+    #
+    #    -> Two different products
+    # ========================================================
+
+    def compare_products(
+        self,
+        message=None,
+        product_name=None,
+        product_name_1=None,
+        product_name_2=None
+    ):
+
+        # ----------------------------------------------------
+        # GET ORIGINAL QUERY
+        # ----------------------------------------------------
+
+        query = (
+            message
+            or product_name
+            or ""
+        ).strip()
+
+        # ----------------------------------------------------
+        # REMOVE COMPARE WORDS
+        # ----------------------------------------------------
+
+        query = re.sub(
+            r"^\s*(please\s+)?compare\s+",
+            "",
+            query,
+            flags=re.IGNORECASE
+        )
+
+        query = re.sub(
+            r"^\s*(please\s+)?compare\s+products?\s+",
+            "",
+            query,
+            flags=re.IGNORECASE
+        )
+
+        query = query.strip()
+
+
+        # ----------------------------------------------------
+        # TWO PRODUCT NAMES
+        # ----------------------------------------------------
+
+        first_product = (
+            product_name_1
+            or ""
+        ).strip()
+
+        second_product = (
+            product_name_2
+            or ""
+        ).strip()
+
+
+        # ----------------------------------------------------
+        # DETECT "AND"
+        # ----------------------------------------------------
+
+        if not first_product or not second_product:
+
+            match = re.match(
+                r"^(.+?)\s+(?:and|vs|versus|with)\s+(.+)$",
+                query,
+                flags=re.IGNORECASE
+            )
+
+            if match:
+
+                first_product = (
+                    match.group(1).strip()
+                )
+
+                second_product = (
+                    match.group(2).strip()
+                )
+
+
+        # ----------------------------------------------------
+        # TWO DIFFERENT PRODUCTS
+        # ----------------------------------------------------
+
+        if first_product and second_product:
+
+            first_matches = (
+                self._get_comparison_products(
+                    first_product
+                )
+            )
+
+            second_matches = (
+                self._get_comparison_products(
+                    second_product
+                )
+            )
+
+            products = (
+                first_matches
+                + second_matches
+            )
+
+            if not products:
+
+                return {
+                    "success": False,
+                    "message": (
+                        "No matching products found "
+                        "for comparison."
+                    ),
+                    "products": []
+                }
+
+            return {
+                "success": True,
+                "comparison_type": "two_products",
+                "product_1": first_product,
+                "product_2": second_product,
+                "count": len(products),
+                "products": products
+            }
+
+
+        # ----------------------------------------------------
+        # ONE PRODUCT
+        # ----------------------------------------------------
+
+        if not query:
+
+            return {
+                "success": False,
+                "message": (
+                    "Please provide a product name "
+                    "to compare."
+                ),
+                "products": []
+            }
+
+
+        products = (
+            self._get_comparison_products(
+                query
+            )
+        )
+
+
+        if not products:
+
+            return {
+                "success": False,
+                "message": (
+                    f"No products found for "
+                    f"'{query}'."
+                ),
+                "products": []
+            }
+
+
+        # ----------------------------------------------------
+        # FIND CHEAPEST PRODUCT
+        # ----------------------------------------------------
+
+        cheapest = min(
+            products,
+            key=lambda product: float(
+                product.get("price") or 0
+            )
+        )
+
+
+        # ----------------------------------------------------
+        # FIND HIGHEST RATING
+        # ----------------------------------------------------
+
+        highest_rated = max(
+            products,
+            key=lambda product: float(
+                product.get("rating") or 0
+            )
+        )
+
+
+        return {
+            "success": True,
+            "comparison_type": "same_product_across_stores",
+            "query": query,
+            "count": len(products),
+            "products": products,
+            "cheapest": cheapest.get("name"),
+            "highest_rated": highest_rated.get("name"),
+            "recommended": cheapest.get("name")
+        }
+
+
+    # ========================================================
+    # ESCALATE TO HUMAN
+    # ========================================================
+
+    def escalate_to_human(
+        self,
+        reason=""
+    ):
+
+        ticket_id = (
+            "TKT-"
+            + uuid.uuid4().hex[:8].upper()
+        )
+
+        return {
+            "success": True,
+            "ticket_id": ticket_id,
+            "reason": reason,
+            "message": (
+                "Your request has been "
+                "escalated to human support."
+            )
+        }
+
+
+# ============================================================
+# CREATE TOOL REGISTRY
+# ============================================================
+
+def create_tool_registry():
+
     tools = CustomerServiceTools()
+
     registry = ToolRegistry()
 
-    # Register all tools
+
+    # ========================================================
+    # LOOKUP ORDER
+    # ========================================================
+
     registry.register(
         name="lookup_order",
         function=tools.lookup_order,
-        schema={
-            "name": "lookup_order",
-            "description": "Look up order details by order number",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "order_number": {
-                        "type": "string",
-                        "description": "The order number (e.g., ORD-12345)",
-                    }
-                },
-                "required": ["order_number"],
+        description=(
+            "Look up an order using its order number."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "order_number": {
+                    "type": "string",
+                    "description": (
+                        "Customer order number."
+                    )
+                }
             },
-        },
+            "required": [
+                "order_number"
+            ]
+        }
     )
+
+
+    # ========================================================
+    # CANCEL ORDER
+    # ========================================================
+
+    registry.register(
+        name="cancel_order",
+        function=tools.cancel_order,
+        description=(
+            "Cancel an existing customer order."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "order_number": {
+                    "type": "string",
+                    "description": (
+                        "Customer order number."
+                    )
+                }
+            },
+            "required": [
+                "order_number"
+            ]
+        }
+    )
+
+
+    # ========================================================
+    # REFUND
+    # ========================================================
 
     registry.register(
         name="process_refund",
         function=tools.process_refund,
-        schema={
-            "name": "process_refund",
-            "description": "Process a refund for an order",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "order_number": {
-                        "type": "string",
-                        "description": "The order number to refund",
-                    },
-                    "reason": {
-                        "type": "string",
-                        "description": "Reason for the refund",
-                    },
-                    "amount": {
-                        "type": "number",
-                        "description": "Refund amount in USD",
-                    },
-                },
-                "required": ["order_number", "reason"],
+        description=(
+            "Process a refund for a cancelled order."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "order_number": {
+                    "type": "string",
+                    "description": (
+                        "Customer order number."
+                    )
+                }
             },
-        },
+            "required": [
+                "order_number"
+            ]
+        }
     )
+
+
+    # ========================================================
+    # CHECK INVENTORY
+    # ========================================================
 
     registry.register(
         name="check_inventory",
         function=tools.check_inventory,
-        schema={
-            "name": "check_inventory",
-            "description": "Check if a product is in stock",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "product_name": {
-                        "type": "string",
-                        "description": "Name of the product",
-                    }
-                },
-                "required": ["product_name"],
+        description=(
+            "Check product stock availability."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "product_name": {
+                    "type": "string",
+                    "description": (
+                        "Product name."
+                    )
+                }
             },
-        },
+            "required": [
+                "product_name"
+            ]
+        }
     )
+
+
+    # ========================================================
+    # PLACE ORDER
+    # ========================================================
+
+    registry.register(
+        name="place_order",
+        function=tools.place_order,
+        description=(
+            "Place a customer order for a product."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "product_name": {
+                    "type": "string",
+                    "description": (
+                        "Product to order."
+                    )
+                },
+                "quantity": {
+                    "type": "integer",
+                    "description": (
+                        "Number of units to order."
+                    ),
+                    "minimum": 1
+                }
+            },
+            "required": [
+                "product_name",
+                "quantity"
+            ]
+        }
+    )
+
+
+    # ========================================================
+    # COMPARE PRODUCTS
+    # ========================================================
+
+    registry.register(
+        name="compare_products",
+        function=tools.compare_products,
+        description=(
+            "Compare products. If the customer gives one "
+            "product name, find the same or matching product "
+            "across different stores such as Amazon, Flipkart, "
+            "Meesho and Myntra. Return price, rating, reviews, "
+            "stock, delivery, image and product URL. If the "
+            "customer gives two product names, compare both "
+            "products."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string",
+                    "description": (
+                        "Complete customer comparison request, "
+                        "for example 'compare Boat Rockerz 450' "
+                        "or 'compare HP 15 Laptop and Dell Inspiron 15'."
+                    )
+                },
+                "product_name": {
+                    "type": "string",
+                    "description": (
+                        "Single product name to compare "
+                        "across stores."
+                    )
+                },
+                "product_name_1": {
+                    "type": "string",
+                    "description": (
+                        "First product name."
+                    )
+                },
+                "product_name_2": {
+                    "type": "string",
+                    "description": (
+                        "Second product name."
+                    )
+                }
+            },
+            "required": []
+        }
+    )
+
+
+    # ========================================================
+    # ESCALATE TO HUMAN
+    # ========================================================
 
     registry.register(
         name="escalate_to_human",
         function=tools.escalate_to_human,
-        schema={
-            "name": "escalate_to_human",
-            "description": "Escalate the issue to a human agent",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "issue_description": {
-                        "type": "string",
-                        "description": "Description of the issue to escalate",
-                    },
-                    "priority": {
-                        "type": "string",
-                        "enum": ["low", "medium", "high", "urgent"],
-                        "description": "Priority level of the issue",
-                    },
-                },
-                "required": ["issue_description", "priority"],
+        description=(
+            "Escalate a customer request "
+            "to human support."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "reason": {
+                    "type": "string",
+                    "description": (
+                        "Reason for escalation."
+                    )
+                }
             },
-        },
+            "required": [
+                "reason"
+            ]
+        }
     )
+
+
+    # ========================================================
+    # PRODUCT CATALOG
+    # ========================================================
 
     registry.register(
         name="get_product_catalog",
         function=tools.get_product_catalog,
-        schema={
-            "name": "get_product_catalog",
-            "description": "Get the current product catalog",
-            "parameters": {
-                "type": "object",
-                "properties": {},
-                "required": [],
+        description=(
+            "Search and return products "
+            "from the product catalog."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": (
+                        "Product name, brand, "
+                        "or category to search."
+                    )
+                }
             },
-        },
+            "required": []
+        }
     )
 
+
     return registry
+
+
+# ============================================================
+# DIRECT TEST
+# ============================================================
+
+if __name__ == "__main__":
+
+    print("Database path:")
+    print(DATABASE_PATH)
+
+    print()
+
+    print("Database exists:")
+    print(os.path.exists(DATABASE_PATH))
+
+    print()
+
+    registry = create_tool_registry()
+
+    print("Registered tools:")
+
+    print(
+        [
+            item["function"]["name"]
+            for item in registry.get_all_schemas()
+        ]
+    )
+
+    print()
+
+    print("get_tool available:")
+
+    print(
+        hasattr(
+            registry,
+            "get_tool"
+        )
+    )
+
+    print()
+
+    # --------------------------------------------------------
+    # TEST ONE-PRODUCT COMPARISON
+    # --------------------------------------------------------
+
+    print("Testing compare_products:")
+
+    test_result = (
+        registry
+        .get_tool("compare_products")(
+            message="compare Boat Rockerz 450"
+        )
+    )
+
+    print(test_result)

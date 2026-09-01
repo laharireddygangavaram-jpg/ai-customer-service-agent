@@ -14,14 +14,27 @@ CREATE TABLE IF NOT EXISTS chat_history (
     FOREIGN KEY (customer_id) REFERENCES customers(id)
 );
 
-CREATE TABLE IF NOT EXISTS products (
+-- Stores
+CREATE TABLE IF NOT EXISTS stores (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE,
     description TEXT,
-    price REAL NOT NULL,
-    stock INTEGER NOT NULL DEFAULT 0
+    image_url TEXT
 );
 
+-- Products
+CREATE TABLE IF NOT EXISTS products (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    store_id INTEGER,
+    name TEXT NOT NULL UNIQUE,
+    description TEXT,
+    price REAL NOT NULL,
+    stock INTEGER NOT NULL DEFAULT 0,
+    image_url TEXT,
+    FOREIGN KEY (store_id) REFERENCES stores(id)
+);
+
+-- Orders
 CREATE TABLE IF NOT EXISTS orders (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     order_number TEXT NOT NULL UNIQUE,
