@@ -1,6 +1,4 @@
-# frontend/index.html
 
-```html
 <!DOCTYPE html>
 <html lang="en">
 
@@ -15,134 +13,268 @@
 
 <body>
 
-    <div class="main-container">
+<div class="main-container">
 
-        <header class="header">
-            <h1>🤖 TechStore AI Customer Support</h1>
-            <p>Powered by Ollama Gemma3</p>
-        </header>
+    <!-- HEADER -->
+    <header class="header">
+        <h1>🤖 TechStore AI Customer Support</h1>
+        <p>Powered by Ollama Gemma3</p>
+    </header>
 
 
-        <section class="card">
+    <!-- ============================= -->
+    <!-- AI CHAT -->
+    <!-- ============================= -->
 
-            <h2>💬 Customer Support</h2>
+    <section class="card">
 
-            <div id="chat-box" class="chat-box">
+        <h2>💬 AI Customer Support</h2>
 
-                <div class="message bot">
-                    Hello! 👋 Welcome to TechStore Customer Support.
-                    How can I help you today?
-                </div>
+        <div id="chat-box" class="chat-box">
 
+            <div class="message bot">
+                Hello! 👋 Welcome to TechStore Customer Support.
+                How can I help you today?
             </div>
 
-            <div class="input-area">
+        </div>
+
+        <div class="input-area">
+
+            <input
+                type="text"
+                id="message-input"
+                placeholder="Ask me about products, prices, recommendations..."
+                autocomplete="off"
+            >
+
+            <button
+                type="button"
+                id="send-button"
+            >
+                Send
+            </button>
+
+        </div>
+
+    </section>
+
+
+    <!-- ============================= -->
+    <!-- PRODUCTS -->
+    <!-- ============================= -->
+
+    <section class="card">
+
+        <div class="section-header">
+
+            <h2>🛍️ Products</h2>
+
+            <button
+                type="button"
+                id="load-products-button"
+            >
+                Load Products
+            </button>
+
+        </div>
+
+
+        <!-- AMAZON -->
+
+        <div class="store-section">
+
+            <h3>🛒 Amazon</h3>
+
+            <div
+                id="amazon-products"
+                class="products-container"
+            >
+                <p>
+                    Click "Load Products" to view Amazon products.
+                </p>
+            </div>
+
+        </div>
+
+
+        <!-- FLIPKART -->
+
+        <div class="store-section">
+
+            <h3>🛍️ Flipkart</h3>
+
+            <div
+                id="flipkart-products"
+                class="products-container"
+            >
+                <p>
+                    Click "Load Products" to view Flipkart products.
+                </p>
+            </div>
+
+        </div>
+
+
+        <!-- MEESHO -->
+
+        <div class="store-section">
+
+            <h3>📦 Meesho</h3>
+
+            <div
+                id="meesho-products"
+                class="products-container"
+            >
+                <p>
+                    Click "Load Products" to view Meesho products.
+                </p>
+            </div>
+
+        </div>
+
+
+        <!-- MYNTRA -->
+
+        <div class="store-section">
+
+            <h3>👗 Myntra</h3>
+
+            <div
+                id="myntra-products"
+                class="products-container"
+            >
+                <p>
+                    Click "Load Products" to view Myntra products.
+                </p>
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- ============================= -->
+    <!-- SHOPPING CART -->
+    <!-- ============================= -->
+
+    <section class="card">
+
+        <h2>🛒 Shopping Cart</h2>
+
+        <div id="cart-container">
+
+            <p class="empty-cart">
+                Your cart is empty.
+            </p>
+
+        </div>
+
+        <div
+            id="cart-summary"
+            class="cart-summary"
+        >
+        </div>
+
+    </section>
+
+
+    <!-- ============================= -->
+    <!-- ORDER MANAGEMENT -->
+    <!-- ============================= -->
+
+    <section class="card">
+
+        <h2>📦 Order Management</h2>
+
+        <div class="order-management">
+
+            <!-- TRACK ORDER -->
+
+            <div class="order-action">
+
+                <h3>🔍 Track Order</h3>
 
                 <input
                     type="text"
-                    id="message-input"
-                    placeholder="Ask about your order, products, refund..."
+                    id="track-order-number"
+                    placeholder="Enter Order Number"
                     autocomplete="off"
                 >
 
-                <button id="send-button">
-                    Send
-                </button>
-
-            </div>
-
-        </section>
-
-
-        <section class="card">
-
-            <div class="section-header">
-
-                <h2>🛍️ TechStore Products</h2>
-
-                <button id="load-products-button">
-                    Load Products
-                </button>
-
-            </div>
-
-            <div id="products-container" class="products-container">
-                <p>Click "Load Products" to view available products.</p>
-            </div>
-
-        </section>
-
-
-        <section class="card">
-
-            <h2>🛒 Place Order</h2>
-
-            <div class="form-grid">
-
-                <input
-                    type="text"
-                    id="customer-name"
-                    placeholder="Your name"
+                <button
+                    type="button"
+                    id="track-order-button"
                 >
-
-                <input
-                    type="email"
-                    id="customer-email"
-                    placeholder="Your email"
-                >
-
-                <input
-                    type="number"
-                    id="product-id"
-                    placeholder="Product ID"
-                    min="1"
-                >
-
-                <input
-                    type="number"
-                    id="quantity"
-                    placeholder="Quantity"
-                    value="1"
-                    min="1"
-                >
-
-            </div>
-
-            <button id="place-order-button">
-                Place Order
-            </button>
-
-            <div id="order-result"></div>
-
-        </section>
-
-
-        <section class="card">
-
-            <h2>📦 Track Order</h2>
-
-            <div class="track-area">
-
-                <input
-                    type="text"
-                    id="order-number"
-                    placeholder="Enter Order ID"
-                >
-
-                <button id="track-order-button">
                     Track Order
                 </button>
 
             </div>
 
-            <div id="tracking-result"></div>
 
-        </section>
+            <!-- CANCEL ORDER -->
 
-    </div>
+            <div class="order-action">
+
+                <h3>❌ Cancel Order</h3>
+
+                <input
+                    type="text"
+                    id="cancel-order-number"
+                    placeholder="Enter Order Number"
+                    autocomplete="off"
+                >
+
+                <button
+                    type="button"
+                    id="cancel-order-button"
+                >
+                    Cancel Order
+                </button>
+
+            </div>
 
 
-    <script src="chat.js"></script>
+            <!-- REFUND ORDER -->
+
+            <div class="order-action">
+
+                <h3>💰 Refund Order</h3>
+
+                <input
+                    type="text"
+                    id="refund-order-number"
+                    placeholder="Enter Order Number"
+                    autocomplete="off"
+                >
+
+                <button
+                    type="button"
+                    id="refund-order-button"
+                >
+                    Request Refund
+                </button>
+
+            </div>
+
+        </div>
+
+
+        <!-- ORDER RESULT -->
+
+        <div
+            id="order-result"
+            class="order-result"
+        >
+        </div>
+
+    </section>
+
+
+</div>
+
+
+<script src="chat.js"></script>
 
 </body>
 

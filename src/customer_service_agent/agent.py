@@ -36,11 +36,11 @@ class CustomerServiceAgent:
 
         self.client = None
         self.client_available = False
+
         self._initialize_ollama_client()
 
         self.tool_registry = create_tool_registry()
 
-        # Ollama local evaluation
         self.evaluator = None
 
         self.conversation_logger = ConversationLogger(
@@ -102,29 +102,18 @@ class CustomerServiceAgent:
         return """
 You are an intelligent customer service agent for TechStore.
 
-You have access to the following customer service tools:
+You have access to customer service tools.
 
-1. lookup_order
-   Use this when a customer asks about an order status.
-
-2. process_refund
-   Use this when a customer requests a refund.
-
-3. check_inventory
-   Use this when a customer asks whether a product is available.
-
-4. escalate_to_human
-   Use this for urgent, payment, account, or complex issues.
-
-5. get_product_catalog
-   Use this when the customer asks about available products.
-
-IMPORTANT:
+Rules:
+- Be polite and professional.
 - Never invent order information.
 - Never invent inventory information.
-- Use the appropriate tool whenever possible.
-- Be polite and professional.
-- Clearly explain the result to the customer.
+- Never invent product information.
+- Use the provided tool result when available.
+- Do not output tool_code.
+- Do not output Python code.
+- Do not describe internal tools.
+- Give the customer a natural answer.
 
 You are running locally using Gemma3 through Ollama.
 """
@@ -148,15 +137,9 @@ You are running locally using Gemma3 through Ollama.
             )
 
         except Exception as e:
-            print("\n" + "=" * 60)
-            print(f"❌ OLLAMA ERROR: {type(e).__name__}")
-            print(f"❌ MESSAGE: {str(e)}")
-            print("=" * 60 + "\n")
-
             logger.error(
                 f"Ollama API error: {type(e).__name__}: {str(e)}"
             )
-
             raise
 
     # =========================================================
@@ -209,9 +192,11 @@ You are running locally using Gemma3 through Ollama.
         if negative_count > positive_count:
             sentiment = "negative"
             score = -0.5
+
         elif positive_count > negative_count:
             sentiment = "positive"
             score = 0.5
+
         else:
             sentiment = "neutral"
             score = 0.0
@@ -231,12 +216,9 @@ You are running locally using Gemma3 through Ollama.
         self,
         message: str,
     ) -> Optional[Dict[str, Any]]:
-        """
-        Detect the required customer service tool
-        from the customer's message.
-        """
+        """Detect required customer service tool."""
 
-        text = message.lower()
+        text = message.lower().strip()
 
         # -----------------------------------------------------
         # ORDER LOOKUP
@@ -249,18 +231,22 @@ You are running locally using Gemma3 through Ollama.
         )
 
         if order_match:
+
             order_number = (
                 order_match.group(0)
                 .upper()
                 .replace(" ", "-")
             )
 
-            if (
-                "order" in text
-                or "status" in text
-                or "delivery" in text
-                or "track" in text
-                or "where" in text
+            if any(
+                word in text
+                for word in [
+                    "order",
+                    "status",
+                    "delivery",
+                    "track",
+                    "where",
+                ]
             ):
                 return {
                     "name": "lookup_order",
@@ -273,12 +259,17 @@ You are running locally using Gemma3 through Ollama.
         # REFUND
         # -----------------------------------------------------
 
-        if (
-            "refund" in text
-            or "money back" in text
-            or "return" in text
+        if any(
+            word in text
+            for word in [
+                "refund",
+                "money back",
+                "return",
+            ]
         ):
+
             if order_match:
+
                 order_number = (
                     order_match.group(0)
                     .upper()
@@ -305,19 +296,26 @@ You are running locally using Gemma3 through Ollama.
             "do you have",
         ]
 
+        products = [
+            "wireless headphones",
+            "headphones",
+            "smart watch",
+            "smartwatch",
+            "laptop",
+            "phone case",
+            "camera",
+            "earbuds",
+            "speakers",
+            "keyboard",
+            "mouse",
+        ]
+
         if any(word in text for word in inventory_words):
 
-            products = [
-                "headphones",
-                "wireless headphones",
-                "smart watch",
-                "smartwatch",
-                "laptop",
-                "phone case",
-            ]
-
             for product in products:
+
                 if product in text:
+
                     return {
                         "name": "check_inventory",
                         "arguments": {
@@ -335,9 +333,46 @@ You are running locally using Gemma3 through Ollama.
             "what do you sell",
             "what products",
             "show products",
+            "show me",
+            "show",
+            "looking for",
+            "looking at",
+            "browse",
+            "see",
         ]
 
-        if any(word in text for word in catalog_words):
+        product_categories = [
+            "wireless headphones",
+            "headphones",
+            "smart watch",
+            "smartwatch",
+            "laptop",
+            "phone case",
+            "camera",
+            "earbuds",
+            "speakers",
+            "keyboard",
+            "mouse",
+        ]
+
+        # "show me headphones"
+        if (
+            any(word in text for word in catalog_words)
+            and any(
+                product in text
+                for product in product_categories
+            )
+        ):
+            return {
+                "name": "get_product_catalog",
+                "arguments": {},
+            }
+
+        # Direct product request
+        if any(
+            product in text
+            for product in product_categories
+        ):
             return {
                 "name": "get_product_catalog",
                 "arguments": {},
@@ -357,7 +392,11 @@ You are running locally using Gemma3 through Ollama.
             "urgent",
         ]
 
-        if any(word in text for word in urgent_words):
+        if any(
+            word in text
+            for word in urgent_words
+        ):
+
             priority = "high"
 
             if "urgent" in text:
@@ -382,16 +421,19 @@ You are running locally using Gemma3 through Ollama.
         tool_name: str,
         arguments: Dict[str, Any],
     ) -> str:
-        """Execute a registered customer service tool."""
+        """Execute registered customer service tool."""
 
         try:
+
             logger.info(
                 f"Executing tool: {tool_name} "
                 f"with args: {arguments}"
             )
 
             tool_function = (
-                self.tool_registry.get_function(tool_name)
+                self.tool_registry.get_function(
+                    tool_name
+                )
             )
 
             result = tool_function(**arguments)
@@ -422,6 +464,134 @@ You are running locally using Gemma3 through Ollama.
             )
 
     # =========================================================
+    # PRODUCT CATALOG FORMATTER
+    # =========================================================
+
+    def _format_product_catalog(
+        self,
+        tool_result: str,
+    ) -> str:
+        """Format product catalog result for customer."""
+
+        try:
+
+            catalog = json.loads(tool_result)
+
+            products = catalog.get(
+                "products",
+                [],
+            )
+
+            if not products:
+                return (
+                    "Sorry, I couldn't find any "
+                    "products right now."
+                )
+
+            lines = [
+                "Here are the available products:"
+            ]
+
+            for product in products:
+
+                name = product.get(
+                    "name",
+                    "Unknown product",
+                )
+
+                price = product.get(
+                    "price",
+                    0,
+                )
+
+                rating = product.get(
+                    "rating",
+                    0,
+                )
+
+                stock = product.get(
+                    "stock",
+                    0,
+                )
+
+                store = product.get(
+                    "store_name",
+                    "N/A",
+                )
+
+                lines.append(
+                    f"• {name} | "
+                    f"Price: ₹{price:.0f} | "
+                    f"Rating: {rating}/5 | "
+                    f"Stock: {stock} | "
+                    f"Store: {store}"
+                )
+
+            return "\n".join(lines)
+
+        except Exception as e:
+
+            logger.error(
+                f"Product catalog formatting failed: "
+                f"{str(e)}"
+            )
+
+            return (
+                "I found the products, but I couldn't "
+                "format the catalog correctly."
+            )
+
+    # =========================================================
+    # CLEAN AI RESPONSE
+    # =========================================================
+
+    def _clean_response(
+        self,
+        response: str,
+    ) -> str:
+        """Remove unwanted tool-code output."""
+
+        if not response:
+            return (
+                "I apologize, but I couldn't generate "
+                "a response."
+            )
+
+        # Remove tool code blocks
+        response = re.sub(
+            r"```tool_code.*?```",
+            "",
+            response,
+            flags=re.DOTALL | re.IGNORECASE,
+        )
+
+        # Remove tool_code text
+        response = re.sub(
+            r"tool_code\s*.*",
+            "",
+            response,
+            flags=re.DOTALL | re.IGNORECASE,
+        )
+
+        # Remove common fake tool-call format
+        response = re.sub(
+            r"get_product_catalog\s*\(.*",
+            "",
+            response,
+            flags=re.DOTALL | re.IGNORECASE,
+        )
+
+        response = response.strip()
+
+        if not response:
+            return (
+                "I apologize, but I couldn't generate "
+                "a response."
+            )
+
+        return response
+
+    # =========================================================
     # CHAT
     # =========================================================
 
@@ -438,7 +608,8 @@ You are running locally using Gemma3 through Ollama.
 
             logger.info(
                 f"Processing message from customer "
-                f"{customer_id}: {user_message[:100]}..."
+                f"{customer_id}: "
+                f"{user_message[:100]}..."
             )
 
             if customer_id:
@@ -486,15 +657,6 @@ You are running locally using Gemma3 through Ollama.
 
         except Exception as e:
 
-            print("\n" + "=" * 60)
-            print(
-                f"❌ ACTUAL ERROR: {type(e).__name__}"
-            )
-            print(
-                f"❌ MESSAGE: {str(e)}"
-            )
-            print("=" * 60 + "\n")
-
             logger.exception(
                 "Error while processing customer message"
             )
@@ -517,7 +679,7 @@ You are running locally using Gemma3 through Ollama.
         """
 
         # -----------------------------------------------------
-        # Detect required tool
+        # Get latest user message
         # -----------------------------------------------------
 
         user_message = ""
@@ -525,26 +687,35 @@ You are running locally using Gemma3 through Ollama.
         for message in reversed(
             self.conversation_history
         ):
+
             if message.get("role") == "user":
+
                 user_message = message.get(
                     "content",
                     "",
                 )
+
                 break
+
+        # -----------------------------------------------------
+        # Detect tool
+        # -----------------------------------------------------
 
         tool_call = self._detect_tool_call(
             user_message
         )
 
+        tool_name = None
+        tool_result = None
+
         # -----------------------------------------------------
         # Execute tool
         # -----------------------------------------------------
 
-        tool_result = None
-
         if tool_call:
 
             tool_name = tool_call["name"]
+
             arguments = tool_call["arguments"]
 
             tool_result = self._execute_tool(
@@ -552,16 +723,48 @@ You are running locally using Gemma3 through Ollama.
                 arguments,
             )
 
-            # Add tool result to conversation
+            logger.info(
+                f"Tool executed: {tool_name}"
+            )
+
+        # -----------------------------------------------------
+        # DIRECT PRODUCT CATALOG
+        # -----------------------------------------------------
+
+        if tool_name == "get_product_catalog":
+
+            final_response = (
+                self._format_product_catalog(
+                    tool_result
+                )
+            )
+
+            self.conversation_history.append(
+                {
+                    "role": "assistant",
+                    "content": final_response,
+                }
+            )
+
+            return final_response
+
+        # -----------------------------------------------------
+        # OTHER TOOL RESULTS
+        # -----------------------------------------------------
+
+        if tool_result:
+
             self.conversation_history.append(
                 {
                     "role": "system",
                     "content": (
-                        f"Tool '{tool_name}' returned:\n"
-                        f"{tool_result}\n\n"
-                        "Use this information to answer "
-                        "the customer's request. "
-                        "Do not mention internal tool names."
+                        "A customer service tool was executed.\n\n"
+                        f"Tool result:\n{tool_result}\n\n"
+                        "Answer the customer using the tool result.\n"
+                        "Do not mention internal tool names.\n"
+                        "Do not generate tool calls.\n"
+                        "Do not output tool_code.\n"
+                        "Answer naturally and professionally."
                     ),
                 }
             )
@@ -596,6 +799,18 @@ You are running locally using Gemma3 through Ollama.
             or "I apologize, but I couldn't generate "
                "a response."
         )
+
+        # -----------------------------------------------------
+        # Clean response
+        # -----------------------------------------------------
+
+        final_response = self._clean_response(
+            final_response
+        )
+
+        # -----------------------------------------------------
+        # Save response
+        # -----------------------------------------------------
 
         self.conversation_history.append(
             {

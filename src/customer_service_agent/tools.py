@@ -1,378 +1,632 @@
-"""
-Tool implementations for the customer service agent.
-"""
-
 import json
-import logging
-from typing import Dict, Any, Optional, List
+import uuid
+import sqlite3
+import os
 from datetime import datetime
-from dataclasses import dataclass
-from tenacity import retry, stop_after_attempt, wait_exponential
-
-logger = logging.getLogger(__name__)
+from typing import Dict, Any, Optional
 
 
-@dataclass
+# =========================================================
+# DATABASE PATH
+# =========================================================
+
+BASE_DIR = os.path.dirname(
+    os.path.dirname(
+        os.path.dirname(
+            os.path.abspath(__file__)
+        )
+    )
+)
+
+DATABASE_PATH = os.path.join(
+    BASE_DIR,
+    "database",
+    "customer_support.db"
+)
+
+
+# =========================================================
+# TOOL REGISTRY
+# =========================================================
+
 class ToolRegistry:
-    """Registry for all available tools."""
 
-    tools: Dict[str, Any] = None
+    def __init__(self):
+        self.tools = {}
 
-    def __post_init__(self):
-        if self.tools is None:
-            self.tools = {}
+    def register(self, name: str, function, schema: Dict[str, Any]):
+        self.tools[name] = {
+            "function": function,
+            "schema": schema
+        }
 
-    def register(self, name: str, function: callable, schema: Dict[str, Any]):
-        """Register a tool with its function and schema."""
-        self.tools[name] = {"function": function, "schema": schema}
+    def get_function(self, name: str):
 
-    def get_function(self, name: str) -> callable:
-        """Get tool function by name."""
         if name not in self.tools:
-            raise ValueError(f"Tool '{name}' not found")
+            raise ValueError(
+                f"Tool '{name}' is not registered"
+            )
+
         return self.tools[name]["function"]
 
-    def get_schema(self, name: str) -> Dict[str, Any]:
-        """Get tool schema by name."""
-        if name not in self.tools:
-            raise ValueError(f"Tool '{name}' not found")
-        return self.tools[name]["schema"]
+    def get_all_schemas(self):
 
-    def get_all_schemas(self) -> List[Dict[str, Any]]:
-        """Get schemas for all tools."""
         return [
-            {"type": "function", "function": {**schema, "name": name}}
-            for name, tool_info in self.tools.items()
-            for schema in [tool_info["schema"]]
+            {
+                "type": "function",
+                "function": tool["schema"]
+            }
+            for tool in self.tools.values()
         ]
 
 
+# =========================================================
+# CUSTOMER SERVICE TOOLS
+# =========================================================
+
 class CustomerServiceTools:
-    """Implementation of customer service tools."""
 
-    def __init__(self):
-        self.orders_db = self._initialize_orders_db()
-        self.inventory_db = self._initialize_inventory_db()
-        self.refund_requests = []
+    def get_connection(self):
 
-    def _initialize_orders_db(self) -> Dict[str, Dict[str, Any]]:
-        """Initialize simulated orders database."""
-        return {
-            "ORD-12345": {
-                "order_number": "ORD-12345",
-                "customer_name": "John Doe",
-                "product": "Wireless Headphones Pro",
-                "status": "Delivered",
-                "order_date": "2025-09-15",
-                "delivery_date": "2025-09-18",
-                "amount": 129.99,
-                "tracking_number": "TRK-789012",
-                "customer_email": "john.doe@example.com",
-            },
-            "ORD-67890": {
-                "order_number": "ORD-67890",
-                "customer_name": "Jane Smith",
-                "product": "Smart Watch Ultra",
-                "status": "In Transit",
-                "order_date": "2025-10-05",
-                "estimated_delivery": "2025-10-10",
-                "amount": 399.99,
-                "tracking_number": "TRK-456789",
-                "customer_email": "jane.smith@example.com",
-            },
-            "ORD-11111": {
-                "order_number": "ORD-11111",
-                "customer_name": "Bob Johnson",
-                "product": "Phone Case",
-                "status": "Processing",
-                "order_date": "2025-10-08",
-                "estimated_delivery": "2025-10-15",
-                "amount": 29.99,
-                "tracking_number": None,
-                "customer_email": "bob.johnson@example.com",
-            },
-        }
+        connection = sqlite3.connect(
+            DATABASE_PATH
+        )
 
-    def _initialize_inventory_db(self) -> Dict[str, Dict[str, Any]]:
-        """Initialize simulated inventory database."""
-        return {
-            "wireless headphones": {
-                "in_stock": True,
-                "quantity": 45,
-                "price": 129.99,
-                "sku": "WH-001",
-                "category": "Audio",
-            },
-            "smart watch": {
-                "in_stock": True,
-                "quantity": 12,
-                "price": 399.99,
-                "sku": "SW-001",
-                "category": "Wearables",
-            },
-            "laptop": {
-                "in_stock": False,
-                "quantity": 0,
-                "price": 1299.99,
-                "restock_date": "2025-10-15",
-                "sku": "LP-001",
-                "category": "Computers",
-            },
-            "phone case": {
-                "in_stock": True,
-                "quantity": 250,
-                "price": 29.99,
-                "sku": "PC-001",
-                "category": "Accessories",
-            },
-        }
+        connection.row_factory = sqlite3.Row
 
-    @retry(
-        stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10)
-    )
+        return connection
+
+
+    # =====================================================
+    # LOOKUP ORDER
+    # =====================================================
+
     def lookup_order(self, order_number: str) -> str:
-        """Look up order details by order number."""
-        logger.info(f"Looking up order: {order_number}")
 
-        order = self.orders_db.get(order_number)
-        if order:
-            return json.dumps({"success": True, "order": order})
-        else:
-            return json.dumps(
-                {
+        try:
+
+            connection = self.get_connection()
+            cursor = connection.cursor()
+
+            cursor.execute(
+                """
+                SELECT *
+                FROM orders
+                WHERE order_number = ?
+                """,
+                (order_number,)
+            )
+
+            order = cursor.fetchone()
+
+            connection.close()
+
+            if not order:
+
+                return json.dumps({
                     "success": False,
-                    "error": "Order not found",
-                    "message": f"No order found with number {order_number}",
-                }
-            )
+                    "message": "Order not found"
+                })
 
-    @retry(
-        stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10)
-    )
-    def process_refund(
-        self, order_number: str, reason: str, amount: Optional[float] = None
-    ) -> str:
-        """Process a refund for an order."""
-        logger.info(f"Processing refund for order: {order_number}")
-
-        # First lookup the order
-        order_data = json.loads(self.lookup_order(order_number))
-
-        if not order_data.get("success"):
-            return json.dumps(
-                {"success": False, "message": "Cannot process refund - order not found"}
-            )
-
-        # Process refund
-        order = order_data["order"]
-        refund_amount = amount if amount is not None else order.get("amount", 0)
-
-        refund_request = {
-            "refund_id": f"REF-{datetime.now().strftime('%Y%m%d%H%M%S')}",
-            "order_number": order_number,
-            "refund_amount": refund_amount,
-            "reason": reason,
-            "status": "Approved",
-            "processing_time": "3-5 business days",
-            "timestamp": datetime.now().isoformat(),
-        }
-
-        self.refund_requests.append(refund_request)
-
-        return json.dumps(
-            {
+            return json.dumps({
                 "success": True,
-                **refund_request,
-                "message": "Refund has been approved and will be credited to your original payment method",
-            }
-        )
+                "order": dict(order)
+            })
 
-    @retry(
-        stop=stop_after_attempt(2), wait=wait_exponential(multiplier=1, min=2, max=5)
-    )
-    def check_inventory(self, product_name: str) -> str:
-        """Check if a product is in stock."""
-        logger.info(f"Checking inventory for: {product_name}")
+        except Exception as e:
 
-        product_key = product_name.lower()
-        for key, inventory_data in self.inventory_db.items():
-            if key in product_key or product_key in key:
-                return json.dumps({"success": True, "product": key, **inventory_data})
-
-        return json.dumps(
-            {
+            return json.dumps({
                 "success": False,
-                "in_stock": False,
-                "message": "Product not found in our inventory",
-            }
+                "error": str(e)
+            })
+
+
+    # =====================================================
+    # REFUND
+    # =====================================================
+
+    def process_refund(
+        self,
+        order_number: str,
+        reason: str,
+        amount: float
+    ) -> str:
+
+        refund_id = (
+            "REF-"
+            + str(uuid.uuid4())[:8].upper()
         )
 
-    def escalate_to_human(self, issue_description: str, priority: str) -> str:
-        """Escalate the issue to a human agent."""
-        logger.info(f"Escalating issue with priority: {priority}")
+        return json.dumps({
+            "success": True,
+            "refund_id": refund_id,
+            "order_number": order_number,
+            "reason": reason,
+            "amount": amount,
+            "status": "Refund initiated",
+            "message": "Your refund request has been successfully initiated."
+        })
 
-        ticket_id = f"TICKET-{datetime.now().strftime('%Y%m%d%H%M%S')}"
 
-        # In a real implementation, this would create a ticket in your support system
-        escalation_data = {
-            "escalated": True,
-            "ticket_id": ticket_id,
-            "priority": priority,
-            "issue": issue_description,
-            "timestamp": datetime.now().isoformat(),
-            "estimated_response_time": (
-                "30 minutes" if priority in ["high", "urgent"] else "2 hours"
-            ),
-        }
+    # =====================================================
+    # CHECK INVENTORY
+    # =====================================================
 
-        return json.dumps(
-            {
-                **escalation_data,
-                "message": f"Your issue has been escalated to our support team. Ticket ID: {ticket_id}",
-            }
-        )
+    def check_inventory(
+        self,
+        product_name: str
+    ) -> str:
 
-    def get_product_catalog(self) -> str:
-        """Get the current product catalog."""
-        catalog = {
-            "products": [
-                {
-                    "name": "Wireless Headphones Pro",
-                    "category": "Audio",
-                    "price": 129.99,
-                    "description": "High-quality wireless headphones with noise cancellation",
-                },
-                {
-                    "name": "Smart Watch Ultra",
-                    "category": "Wearables",
-                    "price": 399.99,
-                    "description": "Advanced smartwatch with health monitoring features",
-                },
-                {
-                    "name": "Gaming Laptop Pro",
-                    "category": "Computers",
-                    "price": 1299.99,
-                    "description": "High-performance gaming laptop",
-                },
-                {
-                    "name": "Phone Case Premium",
-                    "category": "Accessories",
-                    "price": 29.99,
-                    "description": "Durable protective phone case",
-                },
+        try:
+
+            connection = self.get_connection()
+            cursor = connection.cursor()
+
+            search = f"%{product_name.lower()}%"
+
+            cursor.execute(
+                """
+                SELECT
+                    products.id,
+                    products.name,
+                    products.brand,
+                    products.price,
+                    products.stock,
+                    products.rating,
+                    products.reviews,
+                    stores.name AS store_name
+                FROM products
+                LEFT JOIN stores
+                    ON products.store_id = stores.id
+                WHERE
+                    LOWER(products.name) LIKE ?
+                    OR LOWER(products.brand) LIKE ?
+                    OR LOWER(products.description) LIKE ?
+                ORDER BY products.price ASC
+                """,
+                (
+                    search,
+                    search,
+                    search
+                )
+            )
+
+            rows = cursor.fetchall()
+
+            connection.close()
+
+            if not rows:
+
+                return json.dumps({
+                    "success": False,
+                    "search": product_name,
+                    "count": 0,
+                    "products": [],
+                    "message": (
+                        f"No product found for '{product_name}'"
+                    )
+                })
+
+            products = [
+                dict(row)
+                for row in rows
             ]
-        }
 
-        return json.dumps(catalog)
+            return json.dumps({
+                "success": True,
+                "product_name": product_name,
+                "count": len(products),
+                "products": products
+            })
+
+        except Exception as e:
+
+            return json.dumps({
+                "success": False,
+                "error": str(e)
+            })
 
 
-def create_tool_registry() -> ToolRegistry:
-    """Create and configure the tool registry."""
+    # =====================================================
+    # HUMAN ESCALATION
+    # =====================================================
+
+    def escalate_to_human(
+        self,
+        issue_description: str,
+        priority: str
+    ) -> str:
+
+        ticket_id = (
+            "TICKET-"
+            + str(uuid.uuid4())[:8].upper()
+        )
+
+        response_time = (
+            "30 minutes"
+            if priority in ["high", "urgent"]
+            else "2 hours"
+        )
+
+        return json.dumps({
+            "success": True,
+            "ticket_id": ticket_id,
+            "issue": issue_description,
+            "priority": priority,
+            "timestamp": datetime.now().isoformat(),
+            "estimated_response_time": response_time,
+            "message": (
+                "Your issue has been escalated "
+                "to our support team."
+            )
+        })
+
+
+    # =====================================================
+    # PRODUCT CATALOG
+    # =====================================================
+
+    def get_product_catalog(
+        self,
+        product_name: str = "",
+        max_price: Optional[float] = None
+    ) -> str:
+
+        connection = None
+
+        try:
+
+            connection = self.get_connection()
+            cursor = connection.cursor()
+
+            query = """
+                SELECT
+                    products.id,
+                    products.name,
+                    products.description,
+                    products.brand,
+                    products.price,
+                    products.stock,
+                    products.rating,
+                    products.reviews,
+                    products.image_url,
+                    stores.name AS store_name
+                FROM products
+                LEFT JOIN stores
+                    ON products.store_id = stores.id
+                WHERE 1 = 1
+            """
+
+            params = []
+
+            # PRODUCT SEARCH
+
+            if product_name and product_name.strip():
+
+                search = product_name.strip().lower()
+
+                query += """
+                    AND (
+                        LOWER(products.name) LIKE ?
+                        OR LOWER(products.brand) LIKE ?
+                        OR LOWER(products.description) LIKE ?
+                    )
+                """
+
+                keyword = f"%{search}%"
+
+                params.extend([
+                    keyword,
+                    keyword,
+                    keyword
+                ])
+
+            # PRICE FILTER
+
+            if max_price is not None:
+
+                max_price = float(max_price)
+
+                query += """
+                    AND products.price <= ?
+                """
+
+                params.append(max_price)
+
+            # SORT
+
+            query += """
+                ORDER BY
+                    CASE
+                        WHEN products.stock > 0 THEN 0
+                        ELSE 1
+                    END,
+                    COALESCE(products.rating, 0) DESC,
+                    COALESCE(products.reviews, 0) DESC,
+                    products.price ASC
+            """
+
+            cursor.execute(
+                query,
+                params
+            )
+
+            rows = cursor.fetchall()
+
+            products = [
+                dict(row)
+                for row in rows
+            ]
+
+            # NO PRODUCTS
+
+            if not products:
+
+                message = "No products found"
+
+                if product_name:
+                    message += f" for '{product_name}'"
+
+                if max_price is not None:
+                    message += f" under ₹{max_price:g}"
+
+                return json.dumps({
+                    "success": False,
+                    "search": product_name,
+                    "max_price": max_price,
+                    "count": 0,
+                    "products": [],
+                    "message": message
+                })
+
+            # AVAILABLE PRODUCTS
+
+            available_products = [
+                product
+                for product in products
+                if (product.get("stock") or 0) > 0
+            ]
+
+            # BEST PRODUCT
+
+            if available_products:
+
+                best_product = max(
+                    available_products,
+                    key=lambda product: (
+                        product.get("rating") or 0,
+                        product.get("reviews") or 0,
+                        -(product.get("price") or 999999)
+                    )
+                )
+
+            else:
+
+                best_product = max(
+                    products,
+                    key=lambda product: (
+                        product.get("rating") or 0,
+                        product.get("reviews") or 0
+                    )
+                )
+
+            # CHEAPEST
+
+            cheapest_product = min(
+                products,
+                key=lambda product: (
+                    product.get("price")
+                    if product.get("price") is not None
+                    else 999999
+                )
+            )
+
+            # HIGHEST RATED
+
+            highest_rated = max(
+                products,
+                key=lambda product: (
+                    product.get("rating") or 0,
+                    product.get("reviews") or 0
+                )
+            )
+
+            # STORE SUMMARY
+
+            store_summary = {}
+
+            for product in products:
+
+                store = (
+                    product.get("store_name")
+                    or "Unknown"
+                )
+
+                if store not in store_summary:
+                    store_summary[store] = []
+
+                store_summary[store].append(product)
+
+            # FINAL RESPONSE
+
+            return json.dumps({
+                "success": True,
+                "search": product_name,
+                "max_price": max_price,
+                "count": len(products),
+                "products": products,
+                "best_option": best_product,
+                "cheapest_option": cheapest_product,
+                "highest_rated_option": highest_rated,
+                "store_summary": store_summary,
+                "available_stores": list(
+                    store_summary.keys()
+                ),
+                "message": (
+                    f"Found {len(products)} "
+                    f"matching products."
+                )
+            })
+
+        except Exception as e:
+
+            return json.dumps({
+                "success": False,
+                "error": str(e)
+            })
+
+        finally:
+
+            if connection:
+                connection.close()
+
+
+# =========================================================
+# CREATE TOOL REGISTRY
+# =========================================================
+
+def create_tool_registry():
+
     tools = CustomerServiceTools()
+
     registry = ToolRegistry()
 
-    # Register all tools
+    # LOOKUP ORDER
+
     registry.register(
-        name="lookup_order",
-        function=tools.lookup_order,
-        schema={
+        "lookup_order",
+        tools.lookup_order,
+        {
             "name": "lookup_order",
-            "description": "Look up order details by order number",
+            "description": "Look up order details using order number.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "order_number": {
-                        "type": "string",
-                        "description": "The order number (e.g., ORD-12345)",
+                        "type": "string"
                     }
                 },
-                "required": ["order_number"],
-            },
-        },
+                "required": ["order_number"]
+            }
+        }
     )
 
+    # REFUND
+
     registry.register(
-        name="process_refund",
-        function=tools.process_refund,
-        schema={
+        "process_refund",
+        tools.process_refund,
+        {
             "name": "process_refund",
-            "description": "Process a refund for an order",
+            "description": "Process a refund request for an order.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "order_number": {
-                        "type": "string",
-                        "description": "The order number to refund",
+                        "type": "string"
                     },
                     "reason": {
-                        "type": "string",
-                        "description": "Reason for the refund",
+                        "type": "string"
                     },
                     "amount": {
-                        "type": "number",
-                        "description": "Refund amount in USD",
-                    },
+                        "type": "number"
+                    }
                 },
-                "required": ["order_number", "reason"],
-            },
-        },
+                "required": [
+                    "order_number",
+                    "reason",
+                    "amount"
+                ]
+            }
+        }
     )
 
+    # INVENTORY
+
     registry.register(
-        name="check_inventory",
-        function=tools.check_inventory,
-        schema={
+        "check_inventory",
+        tools.check_inventory,
+        {
             "name": "check_inventory",
-            "description": "Check if a product is in stock",
+            "description": "Check product availability and stock.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "product_name": {
+                        "type": "string"
+                    }
+                },
+                "required": ["product_name"]
+            }
+        }
+    )
+
+    # ESCALATION
+
+    registry.register(
+        "escalate_to_human",
+        tools.escalate_to_human,
+        {
+            "name": "escalate_to_human",
+            "description": "Escalate customer issue to human support.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "issue_description": {
+                        "type": "string"
+                    },
+                    "priority": {
+                        "type": "string",
+                        "enum": [
+                            "low",
+                            "medium",
+                            "high",
+                            "urgent"
+                        ]
+                    }
+                },
+                "required": [
+                    "issue_description",
+                    "priority"
+                ]
+            }
+        }
+    )
+
+    # PRODUCT SEARCH
+
+    registry.register(
+        "get_product_catalog",
+        tools.get_product_catalog,
+        {
+            "name": "get_product_catalog",
+            "description": (
+                "Search products across all stores. "
+                "Use for product recommendations, "
+                "budget searches and comparisons."
+            ),
             "parameters": {
                 "type": "object",
                 "properties": {
                     "product_name": {
                         "type": "string",
-                        "description": "Name of the product",
+                        "description": (
+                            "Product such as camera, "
+                            "laptop, phone or headphones."
+                        )
+                    },
+                    "max_price": {
+                        "type": "number",
+                        "description": (
+                            "Maximum budget."
+                        )
                     }
                 },
-                "required": ["product_name"],
-            },
-        },
-    )
-
-    registry.register(
-        name="escalate_to_human",
-        function=tools.escalate_to_human,
-        schema={
-            "name": "escalate_to_human",
-            "description": "Escalate the issue to a human agent",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "issue_description": {
-                        "type": "string",
-                        "description": "Description of the issue to escalate",
-                    },
-                    "priority": {
-                        "type": "string",
-                        "enum": ["low", "medium", "high", "urgent"],
-                        "description": "Priority level of the issue",
-                    },
-                },
-                "required": ["issue_description", "priority"],
-            },
-        },
-    )
-
-    registry.register(
-        name="get_product_catalog",
-        function=tools.get_product_catalog,
-        schema={
-            "name": "get_product_catalog",
-            "description": "Get the current product catalog",
-            "parameters": {
-                "type": "object",
-                "properties": {},
-                "required": [],
-            },
-        },
+                "required": [
+                    "product_name"
+                ]
+            }
+        }
     )
 
     return registry

@@ -1,6 +1,10 @@
 from database.database import get_connection
 
 
+# =========================================================
+# ADD CUSTOMER
+# =========================================================
+
 def add_customer(name, email):
     connection = get_connection()
     cursor = connection.cursor()
@@ -20,6 +24,10 @@ def add_customer(name, email):
     return customer_id
 
 
+# =========================================================
+# SAVE CHAT
+# =========================================================
+
 def save_chat(customer_id, user_message, ai_response):
     connection = get_connection()
     cursor = connection.cursor()
@@ -36,6 +44,10 @@ def save_chat(customer_id, user_message, ai_response):
     connection.commit()
     connection.close()
 
+
+# =========================================================
+# GET CHAT HISTORY
+# =========================================================
 
 def get_chat_history(customer_id):
     connection = get_connection()
@@ -57,6 +69,10 @@ def get_chat_history(customer_id):
     return history
 
 
+# =========================================================
+# ADD PRODUCT
+# =========================================================
+
 def add_product(name, description, price, stock):
     connection = get_connection()
     cursor = connection.cursor()
@@ -76,14 +92,30 @@ def add_product(name, description, price, stock):
     return product_id
 
 
+# =========================================================
+# GET ALL PRODUCTS
+# =========================================================
+
 def get_all_products():
     connection = get_connection()
     cursor = connection.cursor()
 
     cursor.execute(
         """
-        SELECT * FROM products
-        ORDER BY id
+        SELECT
+            products.id,
+            products.name,
+            products.description,
+            products.price,
+            products.stock,
+            products.store_id,
+            products.image_url,
+            stores.name AS store_name,
+            stores.image_url AS store_image
+        FROM products
+        LEFT JOIN stores
+            ON products.store_id = stores.id
+        ORDER BY products.store_id, products.id
         """
     )
 
@@ -92,6 +124,10 @@ def get_all_products():
 
     return products
 
+
+# =========================================================
+# CREATE ORDER
+# =========================================================
 
 def create_order(
     order_number,
@@ -134,6 +170,10 @@ def create_order(
     return order_id
 
 
+# =========================================================
+# GET ORDER
+# =========================================================
+
 def get_order(order_number):
     connection = get_connection()
     cursor = connection.cursor()
@@ -145,7 +185,8 @@ def get_order(order_number):
             products.name AS product_name,
             products.description AS product_description
         FROM orders
-        JOIN products ON orders.product_id = products.id
+        JOIN products
+            ON orders.product_id = products.id
         WHERE orders.order_number = ?
         """,
         (order_number,)
@@ -156,6 +197,10 @@ def get_order(order_number):
 
     return order
 
+
+# =========================================================
+# CANCEL ORDER
+# =========================================================
 
 def cancel_order(order_number):
     connection = get_connection()
@@ -178,3 +223,30 @@ def cancel_order(order_number):
     connection.close()
 
     return cancelled
+
+
+# =========================================================
+# REFUND ORDER
+# =========================================================
+
+def refund_order(order_number):
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute(
+        """
+        UPDATE orders
+        SET status = 'Refunded'
+        WHERE order_number = ?
+        AND status NOT IN ('Cancelled', 'Delivered', 'Refunded')
+        """,
+        (order_number,)
+    )
+
+    connection.commit()
+
+    refunded = cursor.rowcount > 0
+
+    connection.close()
+
+    return refunded
