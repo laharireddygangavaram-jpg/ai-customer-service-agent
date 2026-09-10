@@ -1,4 +1,3 @@
-
 // =========================================================
 // TECHSTORE AI CUSTOMER SUPPORT - FRONTEND
 // =========================================================
@@ -149,7 +148,6 @@ function getDelivery(product) {
         product.delivery ??
         product.delivery_time;
 
-    // If backend gives 2 or 3, use it
     if (
         delivery !== undefined &&
         delivery !== null &&
@@ -167,7 +165,6 @@ function getDelivery(product) {
         return String(delivery);
     }
 
-    // Default delivery
     return Math.random() < 0.5
         ? "2 days"
         : "3 days";
@@ -323,9 +320,6 @@ async function sendMessage() {
                     lowerMessage.includes(keyword)
             );
 
-        // If user asks about a product,
-        // make sure products are loaded.
-        // No recommendation section is created.
         if (isProductQuestion) {
 
             if (allProducts.length === 0) {
@@ -946,6 +940,7 @@ function updateCartUI() {
         return;
     }
 
+    // Remove old order form if cart becomes empty
     if (cart.length === 0) {
 
         cartContainer.innerHTML = `
@@ -956,6 +951,15 @@ function updateCartUI() {
 
         if (cartSummary) {
             cartSummary.innerHTML = "";
+        }
+
+        const oldOrderSection =
+            document.getElementById(
+                "order-section"
+            );
+
+        if (oldOrderSection) {
+            oldOrderSection.remove();
         }
 
         return;
@@ -1165,7 +1169,7 @@ function updateCartUI() {
 }
 
 // =========================================================
-// OPEN ORDER FORM
+// OPEN ORDER FORM - FIXED
 // =========================================================
 
 function openOrderForm() {
@@ -1179,70 +1183,145 @@ function openOrderForm() {
         return;
     }
 
-    let section =
+    // Remove existing form
+    const oldSection =
         document.getElementById(
             "order-section"
         );
 
-    if (!section) {
+    if (oldSection) {
+        oldSection.remove();
+    }
 
-        section =
-            document.createElement(
-                "section"
-            );
+    // =====================================================
+    // CREATE ORDER FORM
+    // =====================================================
 
-        section.id =
-            "order-section";
+    const section =
+        document.createElement("div");
 
-        section.className =
-            "card";
+    section.id =
+        "order-section";
 
-        const mainContainer =
+    section.className =
+        "order-form-card";
+
+    section.innerHTML = `
+
+        <div class="order-form-header">
+
+            <div>
+
+                <p class="small-label">
+                    CHECKOUT
+                </p>
+
+                <h2>
+                    📦 Place Order
+                </h2>
+
+                <p>
+                    Enter your details to complete your order.
+                </p>
+
+            </div>
+
+        </div>
+
+        <div class="order-form">
+
+            <div class="form-field">
+
+                <label>
+                    Customer Name
+                </label>
+
+                <input
+                    id="customer-name"
+                    type="text"
+                    placeholder="Enter your name"
+                    autocomplete="name"
+                >
+
+            </div>
+
+            <div class="form-field">
+
+                <label>
+                    Email Address
+                </label>
+
+                <input
+                    id="customer-email"
+                    type="email"
+                    placeholder="Enter your email"
+                    autocomplete="email"
+                >
+
+            </div>
+
+            <div class="order-form-buttons">
+
+                <button
+                    id="confirm-order-button"
+                    type="button"
+                    class="confirm-order-button"
+                >
+                    ✅ Confirm Order
+                </button>
+
+                <button
+                    id="close-order-button"
+                    type="button"
+                    class="close-order-button"
+                >
+                    Cancel
+                </button>
+
+            </div>
+
+        </div>
+    `;
+
+    // =====================================================
+    // IMPORTANT FIX
+    // =====================================================
+
+    const cartSection =
+        document.getElementById(
+            "cart-section"
+        );
+
+    if (cartSection) {
+
+        cartSection.appendChild(
+            section
+        );
+
+    } else {
+
+        const mainContent =
             document.querySelector(
-                ".main-container"
+                ".main-content"
             );
 
-        if (mainContainer) {
+        if (mainContent) {
 
-            mainContainer.appendChild(
+            mainContent.appendChild(
+                section
+            );
+
+        } else {
+
+            document.body.appendChild(
                 section
             );
         }
     }
 
-    section.innerHTML = `
-
-        <h2>
-            📦 Place Order
-        </h2>
-
-        <p>
-            Enter your details to place the order.
-        </p>
-
-        <div class="order-form">
-
-            <input
-                id="customer-name"
-                type="text"
-                placeholder="Customer Name"
-            >
-
-            <input
-                id="customer-email"
-                type="email"
-                placeholder="Email"
-            >
-
-            <button
-                id="confirm-order-button"
-                type="button"
-            >
-                Confirm Order
-            </button>
-
-        </div>
-    `;
+    // =====================================================
+    // CONFIRM ORDER
+    // =====================================================
 
     const confirmButton =
         document.getElementById(
@@ -1257,8 +1336,34 @@ function openOrderForm() {
         );
     }
 
+    // =====================================================
+    // CLOSE ORDER FORM
+    // =====================================================
+
+    const closeButton =
+        document.getElementById(
+            "close-order-button"
+        );
+
+    if (closeButton) {
+
+        closeButton.addEventListener(
+            "click",
+            function () {
+
+                section.remove();
+
+            }
+        );
+    }
+
+    // =====================================================
+    // SCROLL TO FORM
+    // =====================================================
+
     section.scrollIntoView({
-        behavior: "smooth"
+        behavior: "smooth",
+        block: "center"
     });
 }
 
@@ -1297,11 +1402,45 @@ async function placeCartOrder() {
             ? emailInput.value.trim()
             : "";
 
-    if (!name || !email) {
+    if (!name) {
 
         alert(
-            "Please enter customer name and email."
+            "Please enter customer name."
         );
+
+        if (nameInput) {
+            nameInput.focus();
+        }
+
+        return;
+    }
+
+    if (!email) {
+
+        alert(
+            "Please enter email address."
+        );
+
+        if (emailInput) {
+            emailInput.focus();
+        }
+
+        return;
+    }
+
+    // Simple email validation
+    const emailPattern =
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!emailPattern.test(email)) {
+
+        alert(
+            "Please enter a valid email address."
+        );
+
+        if (emailInput) {
+            emailInput.focus();
+        }
 
         return;
     }
@@ -1310,7 +1449,8 @@ async function placeCartOrder() {
     // BACKEND SUPPORTS ONE PRODUCT PER ORDER
     // =====================================================
 
-    const item = cart[0];
+    const item =
+        cart[0];
 
     const productId =
         Number(item.id);
@@ -1339,6 +1479,20 @@ async function placeCartOrder() {
         );
 
         return;
+    }
+
+    // Disable button while processing
+    const confirmButton =
+        document.getElementById(
+            "confirm-order-button"
+        );
+
+    if (confirmButton) {
+
+        confirmButton.disabled = true;
+
+        confirmButton.textContent =
+            "Placing Order... ⏳";
     }
 
     try {
@@ -1374,7 +1528,8 @@ async function placeCartOrder() {
         let data = {};
 
         try {
-            data = await response.json();
+            data =
+                await response.json();
         } catch {
             data = {};
         }
@@ -1398,9 +1553,9 @@ async function placeCartOrder() {
             data.order_id ||
             "Created";
 
-        alert(
-            `✅ Order placed successfully!\n\nOrder Number: ${orderNumber}`
-        );
+        // =================================================
+        // SAVE ORDER NUMBER
+        // =================================================
 
         if (data.order_number) {
 
@@ -1409,6 +1564,14 @@ async function placeCartOrder() {
                 data.order_number
             );
         }
+
+        // =================================================
+        // SUCCESS ALERT
+        // =================================================
+
+        alert(
+            `✅ Order placed successfully!\n\nOrder Number: ${orderNumber}`
+        );
 
         // =================================================
         // CLEAR CART
@@ -1420,6 +1583,10 @@ async function placeCartOrder() {
 
         updateCartUI();
 
+        // =================================================
+        // REMOVE ORDER FORM
+        // =================================================
+
         const orderSection =
             document.getElementById(
                 "order-section"
@@ -1429,9 +1596,17 @@ async function placeCartOrder() {
             orderSection.remove();
         }
 
+        // =================================================
+        // SET ORDER NUMBERS
+        // =================================================
+
         setOrderNumbers(
             data.order_number
         );
+
+        // =================================================
+        // SHOW RESULT
+        // =================================================
 
         if (orderResult) {
 
@@ -1439,55 +1614,68 @@ async function placeCartOrder() {
 
                 <div class="success-message">
 
-                    ✅ Order placed successfully!
+                    <h3>
+                        ✅ Order placed successfully!
+                    </h3>
 
-                    <br><br>
+                    <br>
 
-                    Order Number:
+                    <p>
+                        <strong>
+                            Order Number:
+                        </strong>
 
-                    <strong>
                         ${escapeHTML(
                             orderNumber
                         )}
-                    </strong>
+                    </p>
 
-                    <br><br>
+                    <p>
+                        <strong>
+                            Product:
+                        </strong>
 
-                    Product:
+                        ${escapeHTML(
+                            data.product ||
+                            data.product_name ||
+                            item.name
+                        )}
+                    </p>
 
-                    ${escapeHTML(
-                        data.product ||
-                        item.name
-                    )}
+                    <p>
+                        <strong>
+                            Quantity:
+                        </strong>
 
-                    <br><br>
+                        ${escapeHTML(
+                            String(
+                                data.quantity ||
+                                quantity
+                            )
+                        )}
+                    </p>
 
-                    Quantity:
+                    <p>
+                        <strong>
+                            Total:
+                        </strong>
 
-                    ${escapeHTML(
-                        String(
-                            data.quantity ||
-                            quantity
-                        )
-                    )}
+                        ₹${Number(
+                            data.total_amount ??
+                            item.price * quantity
+                        ).toFixed(2)}
+                    </p>
 
-                    <br><br>
+                    <p>
+                        <strong>
+                            Status:
+                        </strong>
 
-                    Total:
-
-                    ₹${Number(
-                        data.total_amount ||
-                        item.price * quantity
-                    ).toFixed(2)}
-
-                    <br><br>
-
-                    Status:
-
-                    ${escapeHTML(
-                        data.status ||
-                        "Confirmed"
-                    )}
+                        ${escapeHTML(
+                            data.status ||
+                            "Confirmed"
+                        )}
+                    </p>
 
                 </div>
             `;
@@ -1503,6 +1691,14 @@ async function placeCartOrder() {
         alert(
             `❌ Unable to place order.\n\n${error.message}`
         );
+
+        if (confirmButton) {
+
+            confirmButton.disabled = false;
+
+            confirmButton.textContent =
+                "✅ Confirm Order";
+        }
     }
 }
 
@@ -1588,7 +1784,8 @@ async function trackOrder() {
         let data = {};
 
         try {
-            data = await response.json();
+            data =
+                await response.json();
         } catch {
             data = {};
         }
@@ -1788,7 +1985,8 @@ async function cancelOrder() {
         let data = {};
 
         try {
-            data = await response.json();
+            data =
+                await response.json();
         } catch {
             data = {};
         }
@@ -1914,7 +2112,8 @@ async function refundOrder() {
         let data = {};
 
         try {
-            data = await response.json();
+            data =
+                await response.json();
         } catch {
             data = {};
         }
@@ -2083,4 +2282,3 @@ document.addEventListener(
 console.log(
     "TechStore AI Customer Support loaded successfully."
 );
-

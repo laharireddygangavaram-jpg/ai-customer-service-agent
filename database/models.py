@@ -79,7 +79,8 @@ def add_product(name, description, price, stock):
 
     cursor.execute(
         """
-        INSERT INTO products (name, description, price, stock)
+        INSERT INTO products
+        (name, description, price, stock)
         VALUES (?, ?, ?, ?)
         """,
         (name, description, price, stock)
@@ -149,9 +150,10 @@ def create_order(
             customer_email,
             product_id,
             quantity,
-            total_amount
+            total_amount,
+            status
         )
-        VALUES (?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
         (
             order_number,
@@ -159,12 +161,15 @@ def create_order(
             customer_email,
             product_id,
             quantity,
-            total_amount
+            total_amount,
+            "Confirmed"
         )
     )
 
     connection.commit()
+
     order_id = cursor.lastrowid
+
     connection.close()
 
     return order_id
@@ -193,6 +198,7 @@ def get_order(order_number):
     )
 
     order = cursor.fetchone()
+
     connection.close()
 
     return order
@@ -206,12 +212,45 @@ def cancel_order(order_number):
     connection = get_connection()
     cursor = connection.cursor()
 
+    # Check current order
+    cursor.execute(
+        """
+        SELECT status
+        FROM orders
+        WHERE order_number = ?
+        """,
+        (order_number,)
+    )
+
+    order = cursor.fetchone()
+
+    if not order:
+        connection.close()
+        return False
+
+    current_status = order["status"]
+
+    # Already cancelled
+    if current_status == "Cancelled":
+        connection.close()
+        return False
+
+    # Already refunded
+    if current_status == "Refunded":
+        connection.close()
+        return False
+
+    # Delivered order cannot be cancelled
+    if current_status == "Delivered":
+        connection.close()
+        return False
+
+    # Cancel order
     cursor.execute(
         """
         UPDATE orders
         SET status = 'Cancelled'
         WHERE order_number = ?
-        AND status NOT IN ('Cancelled', 'Delivered')
         """,
         (order_number,)
     )
@@ -229,16 +268,41 @@ def cancel_order(order_number):
 # REFUND ORDER
 # =========================================================
 
+
 def refund_order(order_number):
     connection = get_connection()
     cursor = connection.cursor()
 
+    # Check whether order exists
+    cursor.execute(
+        """
+        SELECT status
+        FROM orders
+        WHERE order_number = ?
+        """,
+        (order_number,)
+    )
+
+    order = cursor.fetchone()
+
+    if not order:
+        connection.close()
+        return False
+
+    current_status = order["status"]
+
+    # Already refunded
+    if current_status == "Refunded":
+        connection.close()
+        return False
+
+    # Allow refund for Confirmed, Cancelled and Delivered orders
     cursor.execute(
         """
         UPDATE orders
         SET status = 'Refunded'
         WHERE order_number = ?
-        AND status NOT IN ('Cancelled', 'Delivered', 'Refunded')
+        AND status IN ('Confirmed', 'Cancelled', 'Delivered')
         """,
         (order_number,)
     )
