@@ -1,20 +1,30 @@
-const API_URL = "http://127.0.0.1:5000/api";
+// =========================================================
+// TECHSTORE AI CUSTOMER SUPPORT - FRONTEND
+// =========================================================
 
 let allProducts = [];
 let cart = JSON.parse(localStorage.getItem("cart")) || [];
 
-// =====================================
+const API_URL = "http://127.0.0.1:5000/api";
+
+// =========================================================
 // DOM ELEMENTS
-// =====================================
+// =========================================================
 
 const chatBox = document.getElementById("chat-box");
 const messageInput = document.getElementById("message-input");
 const sendButton = document.getElementById("send-button");
-const loadProductsButton = document.getElementById("load-products-button");
+const loadProductsButton =
+    document.getElementById("load-products-button");
 
-const cartContainer = document.getElementById("cart-container");
-const cartSummary = document.getElementById("cart-summary");
-const orderResult = document.getElementById("order-result");
+const cartContainer =
+    document.getElementById("cart-container");
+
+const cartSummary =
+    document.getElementById("cart-summary");
+
+const orderResult =
+    document.getElementById("order-result");
 
 const trackOrderNumber =
     document.getElementById("track-order-number");
@@ -34,9 +44,9 @@ const cancelOrderButton =
 const refundOrderButton =
     document.getElementById("refund-order-button");
 
-// =====================================
+// =========================================================
 // STORES
-// =====================================
+// =========================================================
 
 const stores = [
     "Amazon",
@@ -52,11 +62,12 @@ const storeContainers = {
     Myntra: "myntra-products"
 };
 
-// =====================================
+// =========================================================
 // ESCAPE HTML
-// =====================================
+// =========================================================
 
 function escapeHTML(value) {
+
     return String(value ?? "")
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
@@ -65,11 +76,12 @@ function escapeHTML(value) {
         .replace(/'/g, "&#039;");
 }
 
-// =====================================
+// =========================================================
 // GET PRODUCT ID
-// =====================================
+// =========================================================
 
 function getProductId(product) {
+
     return String(
         product.id ??
         product.product_id ??
@@ -77,9 +89,9 @@ function getProductId(product) {
     );
 }
 
-// =====================================
+// =========================================================
 // GET STORE NAME
-// =====================================
+// =========================================================
 
 function getStoreName(product) {
 
@@ -111,9 +123,9 @@ function getStoreName(product) {
     return storeMap[storeId] || "Other Store";
 }
 
-// =====================================
+// =========================================================
 // GET PRODUCT IMAGE
-// =====================================
+// =========================================================
 
 function getProductImage(product) {
 
@@ -125,9 +137,9 @@ function getProductImage(product) {
     );
 }
 
-// =====================================
+// =========================================================
 // ADD CHAT MESSAGE
-// =====================================
+// =========================================================
 
 function addMessage(message, type) {
 
@@ -144,9 +156,7 @@ function addMessage(message, type) {
     messageDiv.textContent =
         message;
 
-    chatBox.appendChild(
-        messageDiv
-    );
+    chatBox.appendChild(messageDiv);
 
     chatBox.scrollTop =
         chatBox.scrollHeight;
@@ -154,9 +164,9 @@ function addMessage(message, type) {
     return messageDiv;
 }
 
-// =====================================
+// =========================================================
 // SEND CHAT MESSAGE
-// =====================================
+// =========================================================
 
 async function sendMessage() {
 
@@ -177,6 +187,10 @@ async function sendMessage() {
     );
 
     messageInput.value = "";
+
+    if (sendButton) {
+        sendButton.disabled = true;
+    }
 
     const thinkingMessage =
         addMessage(
@@ -235,14 +249,15 @@ async function sendMessage() {
             "bot"
         );
 
-        // =====================================
+        // =================================================
         // PRODUCT QUESTION DETECTION
-        // =====================================
+        // =================================================
 
         const lowerMessage =
             message.toLowerCase();
 
         const productKeywords = [
+
             "product",
             "laptop",
             "computer",
@@ -265,6 +280,7 @@ async function sendMessage() {
             "buy",
             "recommend",
             "best"
+
         ];
 
         const isProductQuestion =
@@ -279,9 +295,7 @@ async function sendMessage() {
                 await loadProducts();
             }
 
-            showRecommendation(
-                message
-            );
+            showRecommendation(message);
         }
 
     } catch (error) {
@@ -299,12 +313,22 @@ async function sendMessage() {
             "❌ Unable to connect to AI server. Please make sure the backend is running on port 5000.",
             "bot"
         );
+
+    } finally {
+
+        if (sendButton) {
+            sendButton.disabled = false;
+        }
+
+        if (messageInput) {
+            messageInput.focus();
+        }
     }
 }
 
-// =====================================
+// =========================================================
 // LOAD PRODUCTS
-// =====================================
+// =========================================================
 
 async function loadProducts() {
 
@@ -317,9 +341,15 @@ async function loadProducts() {
             if (container) {
 
                 container.innerHTML =
-                    "<p>Loading products... ⏳</p>";
+                    "<p>Loading products... ⏳";
             }
         });
+
+    if (loadProductsButton) {
+        loadProductsButton.disabled = true;
+        loadProductsButton.textContent =
+            "Loading...";
+    }
 
     try {
 
@@ -346,27 +376,29 @@ async function loadProducts() {
 
         if (Array.isArray(data)) {
 
-            allProducts =
-                data;
+            allProducts = data;
 
         } else if (
             Array.isArray(data.products)
         ) {
 
-            allProducts =
-                data.products;
+            allProducts = data.products;
 
         } else if (
             Array.isArray(data.data)
         ) {
 
-            allProducts =
-                data.data;
+            allProducts = data.data;
 
         } else {
 
             allProducts = [];
         }
+
+        console.log(
+            "Total Products:",
+            allProducts.length
+        );
 
         if (allProducts.length === 0) {
 
@@ -414,12 +446,22 @@ async function loadProducts() {
                     `;
                 }
             });
+
+    } finally {
+
+        if (loadProductsButton) {
+
+            loadProductsButton.disabled = false;
+
+            loadProductsButton.textContent =
+                "Load Products";
+        }
     }
 }
 
-// =====================================
+// =========================================================
 // CREATE STORE SECTIONS
-// =====================================
+// =========================================================
 
 function createStoreSections() {
 
@@ -470,9 +512,9 @@ function createStoreSections() {
     );
 }
 
-// =====================================
+// =========================================================
 // CREATE PRODUCT CARD
-// =====================================
+// =========================================================
 
 function createProductCard(product) {
 
@@ -618,14 +660,12 @@ function createProductCard(product) {
         </div>
     `;
 
-    // =====================================
+    // =====================================================
     // ADD TO CART
-    // =====================================
+    // =====================================================
 
     const addButton =
-        card.querySelector(
-            ".cart-button"
-        );
+        card.querySelector(".cart-button");
 
     if (addButton) {
 
@@ -633,21 +673,18 @@ function createProductCard(product) {
             "click",
             function () {
 
-                addToCart(
-                    productId
-                );
+                addToCart(productId);
+
             }
         );
     }
 
-    // =====================================
+    // =====================================================
     // VIEW PRODUCT
-    // =====================================
+    // =====================================================
 
     const viewButton =
-        card.querySelector(
-            ".view-button"
-        );
+        card.querySelector(".view-button");
 
     if (viewButton) {
 
@@ -659,18 +696,17 @@ function createProductCard(product) {
                     productUrl,
                     "_blank"
                 );
+
             }
         );
     }
 
-    // =====================================
+    // =====================================================
     // IMAGE ERROR
-    // =====================================
+    // =====================================================
 
     const imageElement =
-        card.querySelector(
-            ".product-image"
-        );
+        card.querySelector(".product-image");
 
     if (imageElement) {
 
@@ -680,6 +716,7 @@ function createProductCard(product) {
 
                 this.src =
                     "https://via.placeholder.com/200x150?text=Product";
+
             }
         );
     }
@@ -687,9 +724,9 @@ function createProductCard(product) {
     return card;
 }
 
-// =====================================
+// =========================================================
 // ADD TO CART
-// =====================================
+// =========================================================
 
 function addToCart(productId) {
 
@@ -731,9 +768,7 @@ function addToCart(productId) {
     if (existing) {
 
         existing.quantity =
-            Number(
-                existing.quantity || 0
-            ) + 1;
+            Number(existing.quantity || 0) + 1;
 
     } else {
 
@@ -770,9 +805,9 @@ function addToCart(productId) {
     );
 }
 
-// =====================================
+// =========================================================
 // REMOVE FROM CART
-// =====================================
+// =========================================================
 
 function removeFromCart(index) {
 
@@ -790,9 +825,9 @@ function removeFromCart(index) {
     updateCartUI();
 }
 
-// =====================================
+// =========================================================
 // CHANGE QUANTITY
-// =====================================
+// =========================================================
 
 function changeQuantity(
     index,
@@ -824,9 +859,9 @@ function changeQuantity(
     updateCartUI();
 }
 
-// =====================================
+// =========================================================
 // SAVE CART
-// =====================================
+// =========================================================
 
 function saveCart() {
 
@@ -836,9 +871,9 @@ function saveCart() {
     );
 }
 
-// =====================================
+// =========================================================
 // CART TOTAL
-// =====================================
+// =========================================================
 
 function getCartTotal() {
 
@@ -850,14 +885,15 @@ function getCartTotal() {
                 Number(item.price || 0) *
                 Number(item.quantity || 0)
             );
+
         },
         0
     );
 }
 
-// =====================================
+// =========================================================
 // UPDATE CART UI
-// =====================================
+// =========================================================
 
 function updateCartUI() {
 
@@ -991,14 +1027,12 @@ function updateCartUI() {
         `;
     }
 
-    // =====================================
+    // =====================================================
     // MINUS
-    // =====================================
+    // =====================================================
 
     cartContainer
-        .querySelectorAll(
-            ".quantity-minus"
-        )
+        .querySelectorAll(".quantity-minus")
         .forEach(
             button => {
 
@@ -1012,19 +1046,18 @@ function updateCartUI() {
                             ),
                             -1
                         );
+
                     }
                 );
             }
         );
 
-    // =====================================
+    // =====================================================
     // PLUS
-    // =====================================
+    // =====================================================
 
     cartContainer
-        .querySelectorAll(
-            ".quantity-plus"
-        )
+        .querySelectorAll(".quantity-plus")
         .forEach(
             button => {
 
@@ -1038,19 +1071,18 @@ function updateCartUI() {
                             ),
                             1
                         );
+
                     }
                 );
             }
         );
 
-    // =====================================
+    // =====================================================
     // REMOVE
-    // =====================================
+    // =====================================================
 
     cartContainer
-        .querySelectorAll(
-            ".remove-cart-button"
-        )
+        .querySelectorAll(".remove-cart-button")
         .forEach(
             button => {
 
@@ -1063,14 +1095,15 @@ function updateCartUI() {
                                 this.dataset.index
                             )
                         );
+
                     }
                 );
             }
         );
 
-    // =====================================
+    // =====================================================
     // PLACE ORDER BUTTON
-    // =====================================
+    // =====================================================
 
     const placeButton =
         document.getElementById(
@@ -1086,9 +1119,9 @@ function updateCartUI() {
     }
 }
 
-// =====================================
+// =========================================================
 // RECOMMENDATION
-// =====================================
+// =========================================================
 
 function showRecommendation(query) {
 
@@ -1153,9 +1186,8 @@ function showRecommendation(query) {
                     0
                 );
 
-            if (
-                ratingA !== ratingB
-            ) {
+            if (ratingA !== ratingB) {
+
                 return ratingB - ratingA;
             }
 
@@ -1171,9 +1203,9 @@ function showRecommendation(query) {
     );
 }
 
-// =====================================
+// =========================================================
 // DISPLAY RECOMMENDATIONS
-// =====================================
+// =========================================================
 
 function displayRecommendationProducts(
     products
@@ -1246,13 +1278,14 @@ function displayRecommendationProducts(
             grid.appendChild(
                 createProductCard(product)
             );
+
         }
     );
 }
 
-// =====================================
+// =========================================================
 // OPEN ORDER FORM
-// =====================================
+// =========================================================
 
 function openOrderForm() {
 
@@ -1348,9 +1381,9 @@ function openOrderForm() {
     });
 }
 
-// =====================================
+// =========================================================
 // PLACE CART ORDER
-// =====================================
+// =========================================================
 
 async function placeCartOrder() {
 
@@ -1392,9 +1425,9 @@ async function placeCartOrder() {
         return;
     }
 
-    // =====================================
+    // =====================================================
     // BACKEND SUPPORTS ONE PRODUCT PER ORDER
-    // =====================================
+    // =====================================================
 
     const item = cart[0];
 
@@ -1496,7 +1529,10 @@ async function placeCartOrder() {
             );
         }
 
-        // Clear cart
+        // =================================================
+        // CLEAR CART
+        // =================================================
+
         cart = [];
 
         saveCart();
@@ -1589,9 +1625,9 @@ async function placeCartOrder() {
     }
 }
 
-// =====================================
+// =========================================================
 // SET ORDER NUMBERS
-// =====================================
+// =========================================================
 
 function setOrderNumbers(
     orderNumber
@@ -1620,9 +1656,9 @@ function setOrderNumbers(
     }
 }
 
-// =====================================
+// =========================================================
 // GET ORDER NUMBER
-// =====================================
+// =========================================================
 
 function getOrderNumber(
     inputElement
@@ -1635,9 +1671,9 @@ function getOrderNumber(
     return inputElement.value.trim();
 }
 
-// =====================================
+// =========================================================
 // TRACK ORDER
-// =====================================
+// =========================================================
 
 async function trackOrder() {
 
@@ -1658,7 +1694,7 @@ async function trackOrder() {
     if (orderResult) {
 
         orderResult.innerHTML =
-            "<p>Loading order details... ⏳</p>";
+            "<p>Loading order details... ⏳";
     }
 
     try {
@@ -1818,9 +1854,9 @@ async function trackOrder() {
     }
 }
 
-// =====================================
+// =========================================================
 // CANCEL ORDER
-// =====================================
+// =========================================================
 
 async function cancelOrder() {
 
@@ -1850,7 +1886,7 @@ async function cancelOrder() {
     if (orderResult) {
 
         orderResult.innerHTML =
-            "<p>Cancelling order... ⏳</p>";
+            "<p>Cancelling order... ⏳";
     }
 
     try {
@@ -1944,9 +1980,9 @@ async function cancelOrder() {
     }
 }
 
-// =====================================
+// =========================================================
 // REFUND ORDER
-// =====================================
+// =========================================================
 
 async function refundOrder() {
 
@@ -1976,7 +2012,7 @@ async function refundOrder() {
     if (orderResult) {
 
         orderResult.innerHTML =
-            "<p>Processing refund request... ⏳</p>";
+            "<p>Processing refund request... ⏳";
     }
 
     try {
@@ -2036,7 +2072,7 @@ async function refundOrder() {
 
                     ${escapeHTML(
                         data.status ||
-                        "Refund Requested"
+                        "Refunded"
                     )}
 
                     <br><br>
@@ -2071,20 +2107,15 @@ async function refundOrder() {
                         error.message
                     )}
 
-                    <br><br>
-
-                    Refund API may not be available
-                    in the backend.
-
                 </div>
             `;
         }
     }
 }
 
-// =====================================
+// =========================================================
 // EVENT LISTENERS
-// =====================================
+// =========================================================
 
 if (sendButton) {
 
@@ -2142,9 +2173,9 @@ if (refundOrderButton) {
     );
 }
 
-// =====================================
+// =========================================================
 // START APPLICATION
-// =====================================
+// =========================================================
 
 document.addEventListener(
     "DOMContentLoaded",
@@ -2166,4 +2197,8 @@ document.addEventListener(
             );
         }
     }
+);
+
+console.log(
+    "TechStore AI Customer Support loaded successfully."
 );

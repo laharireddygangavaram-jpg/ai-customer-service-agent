@@ -199,7 +199,7 @@ def refund_order_route(order_number):
                 "error": "Order not found"
             }), 404
 
-        # Request refund
+        # Process refund
         refunded = refund_order(order_number)
 
         if not refunded:
@@ -224,44 +224,60 @@ def refund_order_route(order_number):
 
 
 # =========================================================
-# PRODUCT COMPARISON
+# PRODUCT COMPARISON - GET
 # =========================================================
 
 @store_bp.route("/compare", methods=["GET"])
-def compare_products():
+def compare_products_get():
 
     product_query = request.args.get("product", "").strip()
+
+    return perform_product_comparison(product_query)
+
+
+# =========================================================
+# PRODUCT COMPARISON - POST
+# =========================================================
+
+@store_bp.route("/products/compare", methods=["POST"])
+def compare_products_post():
+
+    data = request.get_json(silent=True) or {}
+
+    product_query = (
+        data.get("product_name")
+        or data.get("product")
+        or data.get("query")
+        or ""
+    ).strip()
+
+    if not product_query:
+
+        return jsonify({
+            "success": False,
+            "error": "Product name is required",
+            "products": []
+        }), 400
+
+    return perform_product_comparison(product_query)
+
+
+# =========================================================
+# PERFORM PRODUCT COMPARISON
+# =========================================================
+
+def perform_product_comparison(product_query):
 
     connection = get_connection()
     cursor = connection.cursor()
 
-    # If no product specified, return all marketplace products
-    if not product_query:
+    try:
 
-        cursor.execute("""
-            SELECT
-                products.id,
-                products.name,
-                products.description,
-                products.brand,
-                products.price,
-                products.stock,
-                products.rating,
-                products.reviews,
-                products.image_url,
-                stores.name AS store_name
-            FROM products
-            JOIN stores
-                ON products.store_id = stores.id
-            WHERE products.store_id IN (5, 6, 7, 8)
-            ORDER BY products.price ASC
-        """)
-
-    else:
-
+        # Search products from Amazon, Flipkart, Meesho, Myntra
         search = f"%{product_query}%"
 
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT
                 products.id,
                 products.name,
@@ -276,26 +292,65 @@ def compare_products():
             FROM products
             JOIN stores
                 ON products.store_id = stores.id
-            WHERE products.store_id IN (5, 6, 7, 8)
-            AND (
-                products.name LIKE ?
-                OR products.brand LIKE ?
-                OR products.description LIKE ?
-            )
+            WHERE
+                (
+                    LOWER(stores.name) LIKE '%amazon%'
+                    OR LOWER(stores.name) LIKE '%flipkart%'
+                    OR LOWER(stores.name) LIKE '%meesho%'
+                    OR LOWER(stores.name) LIKE '%myntra%'
+                )
+                AND (
+                    products.name LIKE ?
+                    OR products.brand LIKE ?
+                    OR products.description LIKE ?
+                )
             ORDER BY products.price ASC
-        """, (
-            search,
-            search,
-            search
-        ))
+            """,
+            (
+                search,
+                search,
+                search
+            )
+        )
 
-    products = cursor.fetchall()
+        products = cursor.fetchall()
 
-    connection.close()
+        result = []
 
-    return jsonify({
-        "success": True,
-        "query": product_query,
-        "count": len(products),
-        "products": [dict(product) for product in products]
-    })
+        for product in products:
+
+            product_data = dict(product)
+
+            # Frontend-friendly store field
+            product_data["store"] = product_data.get(
+                "store_name",
+                "Unknown"
+            )
+
+            # Frontend-friendly image field
+            product_data["image"] = product_data.get(
+                "image_url",
+                ""
+            )
+
+            result.append(product_data)
+
+        return jsonify({
+            "success": True,
+            "query": product_query,
+            "count": len(result),
+            "products": result
+        }), 200
+
+    except Exception as e:
+
+        return jsonify({
+            "success": False,
+            "error": "Unable to compare products",
+            "message": str(e),
+            "products": []
+        }), 500
+
+    finally:
+
+        connection.close()
