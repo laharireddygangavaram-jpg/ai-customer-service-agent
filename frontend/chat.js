@@ -1,3 +1,4 @@
+
 // =========================================================
 // TECHSTORE AI CUSTOMER SUPPORT - FRONTEND
 // =========================================================
@@ -14,6 +15,7 @@ const API_URL = "http://127.0.0.1:5000/api";
 const chatBox = document.getElementById("chat-box");
 const messageInput = document.getElementById("message-input");
 const sendButton = document.getElementById("send-button");
+
 const loadProductsButton =
     document.getElementById("load-products-button");
 
@@ -135,6 +137,40 @@ function getProductImage(product) {
         product.imageUrl ||
         "https://via.placeholder.com/200x150?text=Product"
     );
+}
+
+// =========================================================
+// GET DELIVERY
+// =========================================================
+
+function getDelivery(product) {
+
+    const delivery =
+        product.delivery ??
+        product.delivery_time;
+
+    // If backend gives 2 or 3, use it
+    if (
+        delivery !== undefined &&
+        delivery !== null &&
+        delivery !== "" &&
+        Number(delivery) > 0
+    ) {
+
+        if (
+            typeof delivery === "number" ||
+            !isNaN(Number(delivery))
+        ) {
+            return `${Number(delivery)} days`;
+        }
+
+        return String(delivery);
+    }
+
+    // Default delivery
+    return Math.random() < 0.5
+        ? "2 days"
+        : "3 days";
 }
 
 // =========================================================
@@ -277,9 +313,7 @@ async function sendMessage() {
             "tablet",
             "earbuds",
             "price",
-            "buy",
-            "recommend",
-            "best"
+            "buy"
 
         ];
 
@@ -289,13 +323,14 @@ async function sendMessage() {
                     lowerMessage.includes(keyword)
             );
 
+        // If user asks about a product,
+        // make sure products are loaded.
+        // No recommendation section is created.
         if (isProductQuestion) {
 
             if (allProducts.length === 0) {
                 await loadProducts();
             }
-
-            showRecommendation(message);
         }
 
     } catch (error) {
@@ -341,12 +376,14 @@ async function loadProducts() {
             if (container) {
 
                 container.innerHTML =
-                    "<p>Loading products... ⏳";
+                    "<p>Loading products... ⏳</p>";
             }
         });
 
     if (loadProductsButton) {
+
         loadProductsButton.disabled = true;
+
         loadProductsButton.textContent =
             "Loading...";
     }
@@ -506,6 +543,7 @@ function createStoreSections() {
                     container.appendChild(
                         createProductCard(product)
                     );
+
                 }
             );
         }
@@ -562,9 +600,7 @@ function createProductCard(product) {
         "";
 
     const delivery =
-        product.delivery ??
-        product.delivery_time ??
-        "Available";
+        getDelivery(product);
 
     const image =
         getProductImage(product);
@@ -597,10 +633,13 @@ function createProductCard(product) {
             </p>
 
             <div class="rating">
+
                 ⭐ ${rating.toFixed(1)}
+
                 <span>
                     (${reviews} reviews)
                 </span>
+
             </div>
 
             <div class="price">
@@ -620,17 +659,23 @@ function createProductCard(product) {
             }
 
             <p class="stock">
+
                 📦 Stock:
+
                 ${escapeHTML(
                     String(stock)
                 )}
+
             </p>
 
             <p class="delivery">
-                🚚
+
+                🚚 Delivery:
+
                 ${escapeHTML(
                     String(delivery)
                 )}
+
             </p>
 
             <div class="product-buttons">
@@ -1120,170 +1165,6 @@ function updateCartUI() {
 }
 
 // =========================================================
-// RECOMMENDATION
-// =========================================================
-
-function showRecommendation(query) {
-
-    if (allProducts.length === 0) {
-        return;
-    }
-
-    const lowerQuery =
-        query.toLowerCase();
-
-    const words =
-        lowerQuery
-            .split(/\s+/)
-            .filter(
-                word =>
-                    word.length > 2
-            );
-
-    let matches =
-        allProducts.filter(
-            product => {
-
-                const name =
-                    String(
-                        product.name ||
-                        product.product_name ||
-                        ""
-                    ).toLowerCase();
-
-                const brand =
-                    String(
-                        product.brand ||
-                        ""
-                    ).toLowerCase();
-
-                return words.some(
-                    word =>
-                        name.includes(word) ||
-                        brand.includes(word)
-                );
-            }
-        );
-
-    if (matches.length === 0) {
-        matches = [...allProducts];
-    }
-
-    matches.sort(
-        (a, b) => {
-
-            const ratingA =
-                Number(
-                    a.rating ??
-                    a.average_rating ??
-                    0
-                );
-
-            const ratingB =
-                Number(
-                    b.rating ??
-                    b.average_rating ??
-                    0
-                );
-
-            if (ratingA !== ratingB) {
-
-                return ratingB - ratingA;
-            }
-
-            return (
-                Number(a.price || 0) -
-                Number(b.price || 0)
-            );
-        }
-    );
-
-    displayRecommendationProducts(
-        matches.slice(0, 8)
-    );
-}
-
-// =========================================================
-// DISPLAY RECOMMENDATIONS
-// =========================================================
-
-function displayRecommendationProducts(
-    products
-) {
-
-    if (!products.length) {
-        return;
-    }
-
-    let section =
-        document.getElementById(
-            "recommendation-section"
-        );
-
-    if (!section) {
-
-        section =
-            document.createElement(
-                "section"
-            );
-
-        section.id =
-            "recommendation-section";
-
-        section.className =
-            "card";
-
-        const mainContainer =
-            document.querySelector(
-                ".main-container"
-            );
-
-        if (mainContainer) {
-
-            mainContainer.appendChild(
-                section
-            );
-        }
-    }
-
-    section.innerHTML = `
-
-        <div class="section-header">
-
-            <h2>
-                ⭐ Recommended Products
-            </h2>
-
-            <span>
-                Based on rating and price
-            </span>
-
-        </div>
-
-        <div class="recommendation-grid"></div>
-    `;
-
-    const grid =
-        section.querySelector(
-            ".recommendation-grid"
-        );
-
-    if (!grid) {
-        return;
-    }
-
-    products.forEach(
-        product => {
-
-            grid.appendChild(
-                createProductCard(product)
-            );
-
-        }
-    );
-}
-
-// =========================================================
 // OPEN ORDER FORM
 // =========================================================
 
@@ -1694,7 +1575,7 @@ async function trackOrder() {
     if (orderResult) {
 
         orderResult.innerHTML =
-            "<p>Loading order details... ⏳";
+            "<p>Loading order details... ⏳</p>";
     }
 
     try {
@@ -1886,7 +1767,7 @@ async function cancelOrder() {
     if (orderResult) {
 
         orderResult.innerHTML =
-            "<p>Cancelling order... ⏳";
+            "<p>Cancelling order... ⏳</p>";
     }
 
     try {
@@ -2012,7 +1893,7 @@ async function refundOrder() {
     if (orderResult) {
 
         orderResult.innerHTML =
-            "<p>Processing refund request... ⏳";
+            "<p>Processing refund request... ⏳</p>";
     }
 
     try {
@@ -2202,3 +2083,4 @@ document.addEventListener(
 console.log(
     "TechStore AI Customer Support loaded successfully."
 );
+
