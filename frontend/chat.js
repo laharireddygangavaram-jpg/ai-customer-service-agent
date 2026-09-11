@@ -11,18 +11,27 @@ const API_URL = "http://127.0.0.1:5000/api";
 // DOM ELEMENTS
 // =========================================================
 
-const chatBox = document.getElementById("chat-box");
-const messageInput = document.getElementById("message-input");
+const chatBox = document.getElementById("chat-messages");
+const messageInput = document.getElementById("chat-input");
 const sendButton = document.getElementById("send-button");
 
 const loadProductsButton =
-    document.getElementById("load-products-button");
+    document.getElementById("load-products-btn");
 
 const cartContainer =
-    document.getElementById("cart-container");
+    document.getElementById("cart-items");
 
 const cartSummary =
-    document.getElementById("cart-summary");
+    document.querySelector(".cart-summary");
+
+const cartTotalElement =
+    document.getElementById("cart-total");
+
+const cartCountElement =
+    document.getElementById("cart-count");
+
+const productsCountElement =
+    document.getElementById("products-count");
 
 const orderResult =
     document.getElementById("order-result");
@@ -37,13 +46,16 @@ const refundOrderNumber =
     document.getElementById("refund-order-number");
 
 const trackOrderButton =
-    document.getElementById("track-order-button");
+    document.getElementById("track-order-btn");
 
 const cancelOrderButton =
-    document.getElementById("cancel-order-button");
+    document.getElementById("cancel-order-btn");
 
 const refundOrderButton =
-    document.getElementById("refund-order-button");
+    document.getElementById("refund-order-btn");
+
+const checkoutButton =
+    document.getElementById("checkout-btn");
 
 // =========================================================
 // STORES
@@ -68,7 +80,6 @@ const storeContainers = {
 // =========================================================
 
 function escapeHTML(value) {
-
     return String(value ?? "")
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
@@ -78,11 +89,10 @@ function escapeHTML(value) {
 }
 
 // =========================================================
-// GET PRODUCT ID
+// PRODUCT ID
 // =========================================================
 
 function getProductId(product) {
-
     return String(
         product.id ??
         product.product_id ??
@@ -91,7 +101,7 @@ function getProductId(product) {
 }
 
 // =========================================================
-// GET STORE NAME
+// STORE NAME
 // =========================================================
 
 function getStoreName(product) {
@@ -114,18 +124,19 @@ function getStoreName(product) {
 
     const storeId = Number(product.store_id);
 
+    // Your database store IDs
     const storeMap = {
-        5: "Amazon",
-        6: "Flipkart",
-        7: "Meesho",
-        8: "Myntra"
+        1: "Amazon",
+        2: "Flipkart",
+        3: "Meesho",
+        4: "Myntra"
     };
 
     return storeMap[storeId] || "Other Store";
 }
 
 // =========================================================
-// GET PRODUCT IMAGE
+// PRODUCT IMAGE
 // =========================================================
 
 function getProductImage(product) {
@@ -139,7 +150,7 @@ function getProductImage(product) {
 }
 
 // =========================================================
-// GET DELIVERY
+// DELIVERY
 // =========================================================
 
 function getDelivery(product) {
@@ -151,8 +162,7 @@ function getDelivery(product) {
     if (
         delivery !== undefined &&
         delivery !== null &&
-        delivery !== "" &&
-        Number(delivery) > 0
+        delivery !== ""
     ) {
 
         if (
@@ -165,9 +175,7 @@ function getDelivery(product) {
         return String(delivery);
     }
 
-    return Math.random() < 0.5
-        ? "2 days"
-        : "3 days";
+    return "2-3 days";
 }
 
 // =========================================================
@@ -183,11 +191,21 @@ function addMessage(message, type) {
     const messageDiv =
         document.createElement("div");
 
-    messageDiv.className =
-        `message ${type}`;
+    messageDiv.className = "message";
 
-    messageDiv.textContent =
-        message;
+    if (type === "user") {
+        messageDiv.classList.add("user");
+    } else {
+        messageDiv.classList.add("assistant");
+    }
+
+    const content =
+        document.createElement("div");
+
+    content.className = "message-content";
+    content.textContent = message;
+
+    messageDiv.appendChild(content);
 
     chatBox.appendChild(messageDiv);
 
@@ -214,22 +232,17 @@ async function sendMessage() {
         return;
     }
 
-    addMessage(
-        message,
-        "user"
-    );
+    addMessage(message, "user");
 
     messageInput.value = "";
 
     if (sendButton) {
         sendButton.disabled = true;
+        sendButton.textContent = "Thinking...";
     }
 
     const thinkingMessage =
-        addMessage(
-            "Thinking... 🤖",
-            "bot"
-        );
+        addMessage("Thinking... 🤖", "assistant");
 
     try {
 
@@ -238,12 +251,9 @@ async function sendMessage() {
                 `${API_URL}/chat`,
                 {
                     method: "POST",
-
                     headers: {
-                        "Content-Type":
-                            "application/json"
+                        "Content-Type": "application/json"
                     },
-
                     body: JSON.stringify({
                         message: message
                     })
@@ -277,20 +287,13 @@ async function sendMessage() {
             data.reply ||
             "Sorry, I could not understand your request.";
 
-        addMessage(
-            reply,
-            "bot"
-        );
+        addMessage(reply, "assistant");
 
-        // =================================================
-        // PRODUCT QUESTION DETECTION
-        // =================================================
-
+        // Load products for product-related questions
         const lowerMessage =
             message.toLowerCase();
 
         const productKeywords = [
-
             "product",
             "laptop",
             "computer",
@@ -310,8 +313,8 @@ async function sendMessage() {
             "tablet",
             "earbuds",
             "price",
-            "buy"
-
+            "buy",
+            "compare"
         ];
 
         const isProductQuestion =
@@ -329,10 +332,7 @@ async function sendMessage() {
 
     } catch (error) {
 
-        console.error(
-            "Chat Error:",
-            error
-        );
+        console.error("Chat Error:", error);
 
         if (thinkingMessage) {
             thinkingMessage.remove();
@@ -340,13 +340,14 @@ async function sendMessage() {
 
         addMessage(
             "❌ Unable to connect to AI server. Please make sure the backend is running on port 5000.",
-            "bot"
+            "assistant"
         );
 
     } finally {
 
         if (sendButton) {
             sendButton.disabled = false;
+            sendButton.textContent = "Send";
         }
 
         if (messageInput) {
@@ -361,26 +362,29 @@ async function sendMessage() {
 
 async function loadProducts() {
 
-    Object.values(storeContainers)
-        .forEach(id => {
-
-            const container =
-                document.getElementById(id);
-
-            if (container) {
-
-                container.innerHTML =
-                    "<p>Loading products... ⏳</p>";
-            }
-        });
-
     if (loadProductsButton) {
-
         loadProductsButton.disabled = true;
-
-        loadProductsButton.textContent =
-            "Loading...";
+        loadProductsButton.textContent = "Loading...";
     }
+
+    const loading =
+        document.getElementById("products-loading");
+
+    if (loading) {
+        loading.style.display = "block";
+        loading.textContent = "Loading products... ⏳";
+    }
+
+    Object.values(storeContainers).forEach(id => {
+
+        const container =
+            document.getElementById(id);
+
+        if (container) {
+            container.innerHTML =
+                "<p>Loading products... ⏳</p>";
+        }
+    });
 
     try {
 
@@ -401,6 +405,7 @@ async function loadProducts() {
 
             throw new Error(
                 data.error ||
+                data.message ||
                 `Products API Error: ${response.status}`
             );
         }
@@ -409,15 +414,11 @@ async function loadProducts() {
 
             allProducts = data;
 
-        } else if (
-            Array.isArray(data.products)
-        ) {
+        } else if (Array.isArray(data.products)) {
 
             allProducts = data.products;
 
-        } else if (
-            Array.isArray(data.data)
-        ) {
+        } else if (Array.isArray(data.data)) {
 
             allProducts = data.data;
 
@@ -431,20 +432,23 @@ async function loadProducts() {
             allProducts.length
         );
 
+        if (productsCountElement) {
+            productsCountElement.textContent =
+                allProducts.length;
+        }
+
         if (allProducts.length === 0) {
 
-            Object.values(storeContainers)
-                .forEach(id => {
+            Object.values(storeContainers).forEach(id => {
 
-                    const container =
-                        document.getElementById(id);
+                const container =
+                    document.getElementById(id);
 
-                    if (container) {
-
-                        container.innerHTML =
-                            "<p>No products found.</p>";
-                    }
-                });
+                if (container) {
+                    container.innerHTML =
+                        "<p>No products found.</p>";
+                }
+            });
 
             return;
         }
@@ -453,6 +457,8 @@ async function loadProducts() {
 
         updateCartUI();
 
+        updateAdminProjectStats();
+
     } catch (error) {
 
         console.error(
@@ -460,32 +466,33 @@ async function loadProducts() {
             error
         );
 
-        Object.values(storeContainers)
-            .forEach(id => {
+        Object.values(storeContainers).forEach(id => {
 
-                const container =
-                    document.getElementById(id);
+            const container =
+                document.getElementById(id);
 
-                if (container) {
+            if (container) {
 
-                    container.innerHTML = `
-                        <div class="error-message">
-                            ❌ Unable to load products.
-                            <br><br>
-                            Please make sure the backend is running.
-                        </div>
-                    `;
-                }
-            });
+                container.innerHTML = `
+                    <p>
+                        ❌ Unable to load products.
+                        <br><br>
+                        ${escapeHTML(error.message)}
+                    </p>
+                `;
+            }
+        });
 
     } finally {
 
+        if (loading) {
+            loading.style.display = "none";
+        }
+
         if (loadProductsButton) {
-
             loadProductsButton.disabled = false;
-
             loadProductsButton.textContent =
-                "Load Products";
+                "🔄 Load Products";
         }
     }
 }
@@ -496,52 +503,50 @@ async function loadProducts() {
 
 function createStoreSections() {
 
-    stores.forEach(
-        storeName => {
+    stores.forEach(storeName => {
 
-            const container =
-                document.getElementById(
-                    storeContainers[storeName]
-                );
-
-            if (!container) {
-                return;
-            }
-
-            container.innerHTML = "";
-
-            const storeProducts =
-                allProducts.filter(
-                    product =>
-                        getStoreName(product)
-                            .toLowerCase()
-                            .trim() ===
-                        storeName.toLowerCase()
-                );
-
-            if (storeProducts.length === 0) {
-
-                container.innerHTML = `
-                    <p class="no-products">
-                        No products available in
-                        ${escapeHTML(storeName)}.
-                    </p>
-                `;
-
-                return;
-            }
-
-            storeProducts.forEach(
-                product => {
-
-                    container.appendChild(
-                        createProductCard(product)
-                    );
-
-                }
+        const container =
+            document.getElementById(
+                storeContainers[storeName]
             );
+
+        if (!container) {
+            return;
         }
-    );
+
+        container.innerHTML = "";
+
+        const storeProducts =
+            allProducts.filter(product => {
+
+                return getStoreName(product)
+                    .toLowerCase()
+                    .trim() ===
+                    storeName
+                        .toLowerCase()
+                        .trim();
+            });
+
+        if (storeProducts.length === 0) {
+
+            container.innerHTML = `
+                <p>
+                    No products available in
+                    ${escapeHTML(storeName)}.
+                </p>
+            `;
+
+            return;
+        }
+
+        storeProducts.forEach(product => {
+
+            container.appendChild(
+                createProductCard(product)
+            );
+
+        });
+    });
 }
 
 // =========================================================
@@ -553,8 +558,7 @@ function createProductCard(product) {
     const card =
         document.createElement("div");
 
-    card.className =
-        "product-card";
+    card.className = "product-card";
 
     const productId =
         getProductId(product);
@@ -606,77 +610,56 @@ function createProductCard(product) {
 
     card.innerHTML = `
 
-        <div class="product-image-box">
-
-            <img
-                class="product-image"
-                src="${escapeHTML(image)}"
-                alt="${escapeHTML(name)}"
-            >
-
-        </div>
+        <img
+            class="product-image"
+            src="${escapeHTML(image)}"
+            alt="${escapeHTML(name)}"
+        >
 
         <div class="product-info">
 
-            <h4>
+            <h3>
                 ${escapeHTML(name)}
-            </h4>
+            </h3>
 
-            <p class="brand">
+            <p class="product-brand">
                 ${escapeHTML(brand)}
             </p>
 
-            <div class="rating">
-
-                ⭐ ${rating.toFixed(1)}
-
-                <span>
-                    (${reviews} reviews)
-                </span>
-
-            </div>
-
-            <div class="price">
+            <div class="product-price">
                 ₹${price.toFixed(2)}
             </div>
+
+            <div class="product-rating">
+                ⭐ ${rating.toFixed(1)}
+                (${reviews} reviews)
+            </div>
+
+            <div class="product-stock">
+                📦 Stock:
+                ${escapeHTML(String(stock))}
+            </div>
+
+            <p>
+                🚚 Delivery:
+                ${escapeHTML(delivery)}
+            </p>
 
             ${
                 discount
                     ? `
-                        <div class="discount">
-                            ${escapeHTML(
-                                String(discount)
-                            )}% OFF
-                        </div>
+                        <p>
+                            🔥 ${escapeHTML(String(discount))}% OFF
+                        </p>
                     `
                     : ""
             }
 
-            <p class="stock">
-
-                📦 Stock:
-
-                ${escapeHTML(
-                    String(stock)
-                )}
-
-            </p>
-
-            <p class="delivery">
-
-                🚚 Delivery:
-
-                ${escapeHTML(
-                    String(delivery)
-                )}
-
-            </p>
-
-            <div class="product-buttons">
+            <div class="product-actions">
 
                 <button
-                    class="cart-button"
                     type="button"
+                    class="add-cart-btn"
                 >
                     🛒 Add to Cart
                 </button>
@@ -685,10 +668,10 @@ function createProductCard(product) {
                     productUrl
                         ? `
                             <button
-                                class="view-button"
                                 type="button"
+                                class="view-product-btn"
                             >
-                                🔗 View Product
+                                🔗 View
                             </button>
                         `
                         : ""
@@ -699,12 +682,9 @@ function createProductCard(product) {
         </div>
     `;
 
-    // =====================================================
-    // ADD TO CART
-    // =====================================================
-
+    // Add to cart
     const addButton =
-        card.querySelector(".cart-button");
+        card.querySelector(".add-cart-btn");
 
     if (addButton) {
 
@@ -718,12 +698,9 @@ function createProductCard(product) {
         );
     }
 
-    // =====================================================
-    // VIEW PRODUCT
-    // =====================================================
-
+    // View product
     const viewButton =
-        card.querySelector(".view-button");
+        card.querySelector(".view-product-btn");
 
     if (viewButton) {
 
@@ -740,10 +717,7 @@ function createProductCard(product) {
         );
     }
 
-    // =====================================================
-    // IMAGE ERROR
-    // =====================================================
-
+    // Image error
     const imageElement =
         card.querySelector(".product-image");
 
@@ -778,9 +752,7 @@ function addToCart(productId) {
 
     if (!product) {
 
-        alert(
-            "❌ Product not found."
-        );
+        alert("❌ Product not found.");
 
         return;
     }
@@ -790,9 +762,7 @@ function addToCart(productId) {
 
     if (!id) {
 
-        alert(
-            "❌ Product ID not found."
-        );
+        alert("❌ Product ID not found.");
 
         return;
     }
@@ -821,9 +791,7 @@ function addToCart(productId) {
                 "Product",
 
             price:
-                Number(
-                    product.price || 0
-                ),
+                Number(product.price || 0),
 
             quantity: 1,
 
@@ -839,9 +807,7 @@ function addToCart(productId) {
 
     updateCartUI();
 
-    alert(
-        "✅ Product added to cart!"
-    );
+    alert("✅ Product added to cart!");
 }
 
 // =========================================================
@@ -854,10 +820,7 @@ function removeFromCart(index) {
         return;
     }
 
-    cart.splice(
-        index,
-        1
-    );
+    cart.splice(index, 1);
 
     saveCart();
 
@@ -868,29 +831,19 @@ function removeFromCart(index) {
 // CHANGE QUANTITY
 // =========================================================
 
-function changeQuantity(
-    index,
-    change
-) {
+function changeQuantity(index, change) {
 
     if (!cart[index]) {
         return;
     }
 
     cart[index].quantity =
-        Number(
-            cart[index].quantity || 1
-        ) +
+        Number(cart[index].quantity || 1) +
         Number(change);
 
-    if (
-        cart[index].quantity <= 0
-    ) {
+    if (cart[index].quantity <= 0) {
 
-        cart.splice(
-            index,
-            1
-        );
+        cart.splice(index, 1);
     }
 
     saveCart();
@@ -936,418 +889,223 @@ function getCartTotal() {
 
 function updateCartUI() {
 
+    if (cartCountElement) {
+
+        const count =
+            cart.reduce(
+                (total, item) =>
+                    total +
+                    Number(item.quantity || 0),
+                0
+            );
+
+        cartCountElement.textContent =
+            count;
+    }
+
+    if (cartTotalElement) {
+
+        cartTotalElement.textContent =
+            getCartTotal().toFixed(2);
+    }
+
     if (!cartContainer) {
         return;
     }
 
-    // Remove old order form if cart becomes empty
     if (cart.length === 0) {
 
         cartContainer.innerHTML = `
-            <p class="cart-empty">
+            <p>
                 Your cart is empty.
             </p>
         `;
 
-        if (cartSummary) {
-            cartSummary.innerHTML = "";
-        }
-
-        const oldOrderSection =
-            document.getElementById(
-                "order-section"
-            );
-
-        if (oldOrderSection) {
-            oldOrderSection.remove();
-        }
-
         return;
     }
 
-    let html = `
-        <div class="cart-items">
-    `;
+    let html = "";
 
-    cart.forEach(
-        (item, index) => {
+    cart.forEach((item, index) => {
 
-            const itemTotal =
-                Number(item.price || 0) *
-                Number(item.quantity || 0);
+        const itemTotal =
+            Number(item.price || 0) *
+            Number(item.quantity || 0);
 
-            html += `
+        html += `
 
-                <div class="cart-item">
+            <div class="cart-item">
 
-                    <img
-                        class="cart-item-image"
-                        src="${escapeHTML(item.image)}"
-                        alt="${escapeHTML(item.name)}"
-                    >
+                <img
+                    class="cart-item-image"
+                    src="${escapeHTML(item.image)}"
+                    alt="${escapeHTML(item.name)}"
+                >
 
-                    <div class="cart-item-details">
+                <div class="cart-item-info">
 
-                        <h3>
-                            ${escapeHTML(item.name)}
-                        </h3>
+                    <h3>
+                        ${escapeHTML(item.name)}
+                    </h3>
 
-                        <p>
-                            Store:
-                            ${escapeHTML(item.store)}
-                        </p>
+                    <p>
+                        Store:
+                        ${escapeHTML(item.store)}
+                    </p>
 
-                        <p>
-                            Product ID:
-                            ${escapeHTML(item.id)}
-                        </p>
+                    <p>
+                        Product ID:
+                        ${escapeHTML(item.id)}
+                    </p>
 
-                        <p>
-                            Price:
-                            ₹${Number(item.price).toFixed(2)}
-                        </p>
+                    <p>
+                        Price:
+                        ₹${Number(item.price).toFixed(2)}
+                    </p>
 
-                        <p>
-                            Item Total:
-                            ₹${itemTotal.toFixed(2)}
-                        </p>
+                    <p>
+                        Item Total:
+                        ₹${itemTotal.toFixed(2)}
+                    </p>
 
-                        <div class="quantity-controls">
+                    <div class="quantity-controls">
 
-                            <button
-                                type="button"
-                                class="quantity-minus"
-                                data-index="${index}"
-                            >
-                                −
-                            </button>
+                        <button
+                            type="button"
+                            onclick="changeQuantity(${index}, -1)"
+                        >
+                            −
+                        </button>
 
-                            <span class="quantity-value">
-                                ${Number(item.quantity)}
-                            </span>
+                        <span>
+                            ${Number(item.quantity)}
+                        </span>
 
-                            <button
-                                type="button"
-                                class="quantity-plus"
-                                data-index="${index}"
-                            >
-                                +
-                            </button>
-
-                        </div>
+                        <button
+                            type="button"
+                            onclick="changeQuantity(${index}, 1)"
+                        >
+                            +
+                        </button>
 
                     </div>
 
-                    <button
-                        type="button"
-                        class="remove-cart-button"
-                        data-index="${index}"
-                    >
-                        Remove
-                    </button>
-
                 </div>
-            `;
-        }
-    );
 
-    html += `
-        </div>
-    `;
+                <button
+                    type="button"
+                    class="remove-cart-btn"
+                    onclick="removeFromCart(${index})"
+                >
+                    Remove
+                </button>
 
-    cartContainer.innerHTML =
-        html;
+            </div>
+        `;
+    });
+
+    cartContainer.innerHTML = html;
 
     if (cartSummary) {
 
-        cartSummary.innerHTML = `
-
-            <h3>
-                Total:
-                ₹${getCartTotal().toFixed(2)}
-            </h3>
-
-            <button
-                type="button"
-                id="place-cart-order-button"
-            >
-                📦 Place Order
-            </button>
-        `;
-    }
-
-    // =====================================================
-    // MINUS
-    // =====================================================
-
-    cartContainer
-        .querySelectorAll(".quantity-minus")
-        .forEach(
-            button => {
-
-                button.addEventListener(
-                    "click",
-                    function () {
-
-                        changeQuantity(
-                            Number(
-                                this.dataset.index
-                            ),
-                            -1
-                        );
-
-                    }
-                );
-            }
-        );
-
-    // =====================================================
-    // PLUS
-    // =====================================================
-
-    cartContainer
-        .querySelectorAll(".quantity-plus")
-        .forEach(
-            button => {
-
-                button.addEventListener(
-                    "click",
-                    function () {
-
-                        changeQuantity(
-                            Number(
-                                this.dataset.index
-                            ),
-                            1
-                        );
-
-                    }
-                );
-            }
-        );
-
-    // =====================================================
-    // REMOVE
-    // =====================================================
-
-    cartContainer
-        .querySelectorAll(".remove-cart-button")
-        .forEach(
-            button => {
-
-                button.addEventListener(
-                    "click",
-                    function () {
-
-                        removeFromCart(
-                            Number(
-                                this.dataset.index
-                            )
-                        );
-
-                    }
-                );
-            }
-        );
-
-    // =====================================================
-    // PLACE ORDER BUTTON
-    // =====================================================
-
-    const placeButton =
-        document.getElementById(
-            "place-cart-order-button"
-        );
-
-    if (placeButton) {
-
-        placeButton.addEventListener(
-            "click",
-            openOrderForm
-        );
+        if (cartTotalElement) {
+            cartTotalElement.textContent =
+                getCartTotal().toFixed(2);
+        }
     }
 }
 
 // =========================================================
-// OPEN ORDER FORM - FIXED
+// OPEN ORDER FORM
 // =========================================================
 
 function openOrderForm() {
 
     if (cart.length === 0) {
 
-        alert(
-            "❌ Cart is empty."
-        );
+        alert("❌ Cart is empty.");
 
         return;
     }
 
-    // Remove existing form
     const oldSection =
-        document.getElementById(
-            "order-section"
-        );
+        document.getElementById("order-section");
 
     if (oldSection) {
         oldSection.remove();
     }
 
-    // =====================================================
-    // CREATE ORDER FORM
-    // =====================================================
-
     const section =
         document.createElement("div");
 
-    section.id =
-        "order-section";
+    section.id = "order-section";
 
-    section.className =
-        "order-form-card";
+    section.style.marginTop = "20px";
 
     section.innerHTML = `
 
-        <div class="order-form-header">
+        <div class="order-card">
 
-            <div>
+            <h2>📦 Place Order</h2>
 
-                <p class="small-label">
-                    CHECKOUT
-                </p>
+            <p>
+                Enter your details to complete your order.
+            </p>
 
-                <h2>
-                    📦 Place Order
-                </h2>
+            <input
+                id="customer-name"
+                type="text"
+                placeholder="Enter your name"
+            >
 
-                <p>
-                    Enter your details to complete your order.
-                </p>
+            <input
+                id="customer-email"
+                type="email"
+                placeholder="Enter your email"
+            >
 
-            </div>
+            <button
+                id="confirm-order-button"
+                class="primary-btn"
+                type="button"
+            >
+                ✅ Confirm Order
+            </button>
 
-        </div>
-
-        <div class="order-form">
-
-            <div class="form-field">
-
-                <label>
-                    Customer Name
-                </label>
-
-                <input
-                    id="customer-name"
-                    type="text"
-                    placeholder="Enter your name"
-                    autocomplete="name"
-                >
-
-            </div>
-
-            <div class="form-field">
-
-                <label>
-                    Email Address
-                </label>
-
-                <input
-                    id="customer-email"
-                    type="email"
-                    placeholder="Enter your email"
-                    autocomplete="email"
-                >
-
-            </div>
-
-            <div class="order-form-buttons">
-
-                <button
-                    id="confirm-order-button"
-                    type="button"
-                    class="confirm-order-button"
-                >
-                    ✅ Confirm Order
-                </button>
-
-                <button
-                    id="close-order-button"
-                    type="button"
-                    class="close-order-button"
-                >
-                    Cancel
-                </button>
-
-            </div>
+            <button
+                id="close-order-button"
+                class="secondary-btn"
+                type="button"
+                style="margin-left:10px;"
+            >
+                Cancel
+            </button>
 
         </div>
     `;
 
-    // =====================================================
-    // IMPORTANT FIX
-    // =====================================================
-
     const cartSection =
-        document.getElementById(
-            "cart-section"
-        );
+        document.getElementById("cart-section");
 
     if (cartSection) {
 
-        cartSection.appendChild(
-            section
-        );
+        cartSection.appendChild(section);
 
     } else {
 
-        const mainContent =
-            document.querySelector(
-                ".main-content"
-            );
-
-        if (mainContent) {
-
-            mainContent.appendChild(
-                section
-            );
-
-        } else {
-
-            document.body.appendChild(
-                section
-            );
-        }
+        document.body.appendChild(section);
     }
 
-    // =====================================================
-    // CONFIRM ORDER
-    // =====================================================
-
-    const confirmButton =
-        document.getElementById(
-            "confirm-order-button"
-        );
-
-    if (confirmButton) {
-
-        confirmButton.addEventListener(
+    document
+        .getElementById("confirm-order-button")
+        .addEventListener(
             "click",
             placeCartOrder
         );
-    }
 
-    // =====================================================
-    // CLOSE ORDER FORM
-    // =====================================================
-
-    const closeButton =
-        document.getElementById(
-            "close-order-button"
-        );
-
-    if (closeButton) {
-
-        closeButton.addEventListener(
+    document
+        .getElementById("close-order-button")
+        .addEventListener(
             "click",
             function () {
 
@@ -1355,11 +1113,6 @@ function openOrderForm() {
 
             }
         );
-    }
-
-    // =====================================================
-    // SCROLL TO FORM
-    // =====================================================
 
     section.scrollIntoView({
         behavior: "smooth",
@@ -1375,22 +1128,16 @@ async function placeCartOrder() {
 
     if (cart.length === 0) {
 
-        alert(
-            "❌ Cart is empty."
-        );
+        alert("❌ Cart is empty.");
 
         return;
     }
 
     const nameInput =
-        document.getElementById(
-            "customer-name"
-        );
+        document.getElementById("customer-name");
 
     const emailInput =
-        document.getElementById(
-            "customer-email"
-        );
+        document.getElementById("customer-email");
 
     const name =
         nameInput
@@ -1404,9 +1151,7 @@ async function placeCartOrder() {
 
     if (!name) {
 
-        alert(
-            "Please enter customer name."
-        );
+        alert("Please enter customer name.");
 
         if (nameInput) {
             nameInput.focus();
@@ -1417,9 +1162,7 @@ async function placeCartOrder() {
 
     if (!email) {
 
-        alert(
-            "Please enter email address."
-        );
+        alert("Please enter email address.");
 
         if (emailInput) {
             emailInput.focus();
@@ -1428,29 +1171,18 @@ async function placeCartOrder() {
         return;
     }
 
-    // Simple email validation
     const emailPattern =
         /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
     if (!emailPattern.test(email)) {
 
-        alert(
-            "Please enter a valid email address."
-        );
-
-        if (emailInput) {
-            emailInput.focus();
-        }
+        alert("Please enter a valid email address.");
 
         return;
     }
 
-    // =====================================================
-    // BACKEND SUPPORTS ONE PRODUCT PER ORDER
-    // =====================================================
-
-    const item =
-        cart[0];
+    // Backend currently supports one product per order.
+    const item = cart[0];
 
     const productId =
         Number(item.id);
@@ -1460,28 +1192,18 @@ async function placeCartOrder() {
 
     if (!productId || productId <= 0) {
 
-        alert(
-            "❌ Invalid Product ID."
-        );
-
-        console.error(
-            "Invalid product ID:",
-            item.id
-        );
+        alert("❌ Invalid Product ID.");
 
         return;
     }
 
     if (!quantity || quantity <= 0) {
 
-        alert(
-            "❌ Invalid quantity."
-        );
+        alert("❌ Invalid quantity.");
 
         return;
     }
 
-    // Disable button while processing
     const confirmButton =
         document.getElementById(
             "confirm-order-button"
@@ -1490,7 +1212,6 @@ async function placeCartOrder() {
     if (confirmButton) {
 
         confirmButton.disabled = true;
-
         confirmButton.textContent =
             "Placing Order... ⏳";
     }
@@ -1528,8 +1249,7 @@ async function placeCartOrder() {
         let data = {};
 
         try {
-            data =
-                await response.json();
+            data = await response.json();
         } catch {
             data = {};
         }
@@ -1553,39 +1273,60 @@ async function placeCartOrder() {
             data.order_id ||
             "Created";
 
-        // =================================================
-        // SAVE ORDER NUMBER
-        // =================================================
-
         if (data.order_number) {
 
             localStorage.setItem(
                 "lastOrderNumber",
                 data.order_number
             );
-        }
 
-        // =================================================
-        // SUCCESS ALERT
-        // =================================================
+            // Save local order information
+            const orders =
+                JSON.parse(
+                    localStorage.getItem("orders") || "[]"
+                );
+
+            orders.push({
+
+                order_number:
+                    data.order_number,
+
+                customer_name:
+                    name,
+
+                customer_email:
+                    email,
+
+                product:
+                    item.name,
+
+                quantity:
+                    quantity,
+
+                total_amount:
+                    data.total_amount ??
+                    item.price * quantity,
+
+                status:
+                    data.status ||
+                    "Confirmed"
+            });
+
+            localStorage.setItem(
+                "orders",
+                JSON.stringify(orders)
+            );
+        }
 
         alert(
             `✅ Order placed successfully!\n\nOrder Number: ${orderNumber}`
         );
-
-        // =================================================
-        // CLEAR CART
-        // =================================================
 
         cart = [];
 
         saveCart();
 
         updateCartUI();
-
-        // =================================================
-        // REMOVE ORDER FORM
-        // =================================================
 
         const orderSection =
             document.getElementById(
@@ -1596,23 +1337,15 @@ async function placeCartOrder() {
             orderSection.remove();
         }
 
-        // =================================================
-        // SET ORDER NUMBERS
-        // =================================================
-
         setOrderNumbers(
             data.order_number
         );
-
-        // =================================================
-        // SHOW RESULT
-        // =================================================
 
         if (orderResult) {
 
             orderResult.innerHTML = `
 
-                <div class="success-message">
+                <div>
 
                     <h3>
                         ✅ Order placed successfully!
@@ -1625,9 +1358,7 @@ async function placeCartOrder() {
                             Order Number:
                         </strong>
 
-                        ${escapeHTML(
-                            orderNumber
-                        )}
+                        ${escapeHTML(orderNumber)}
                     </p>
 
                     <p>
@@ -1647,12 +1378,7 @@ async function placeCartOrder() {
                             Quantity:
                         </strong>
 
-                        ${escapeHTML(
-                            String(
-                                data.quantity ||
-                                quantity
-                            )
-                        )}
+                        ${quantity}
                     </p>
 
                     <p>
@@ -1681,6 +1407,8 @@ async function placeCartOrder() {
             `;
         }
 
+        updateAdminProjectStats();
+
     } catch (error) {
 
         console.error(
@@ -1706,28 +1434,23 @@ async function placeCartOrder() {
 // SET ORDER NUMBERS
 // =========================================================
 
-function setOrderNumbers(
-    orderNumber
-) {
+function setOrderNumbers(orderNumber) {
 
     if (!orderNumber) {
         return;
     }
 
     if (trackOrderNumber) {
-
         trackOrderNumber.value =
             orderNumber;
     }
 
     if (cancelOrderNumber) {
-
         cancelOrderNumber.value =
             orderNumber;
     }
 
     if (refundOrderNumber) {
-
         refundOrderNumber.value =
             orderNumber;
     }
@@ -1737,9 +1460,7 @@ function setOrderNumbers(
 // GET ORDER NUMBER
 // =========================================================
 
-function getOrderNumber(
-    inputElement
-) {
+function getOrderNumber(inputElement) {
 
     if (!inputElement) {
         return "";
@@ -1784,8 +1505,7 @@ async function trackOrder() {
         let data = {};
 
         try {
-            data =
-                await response.json();
+            data = await response.json();
         } catch {
             data = {};
         }
@@ -1807,11 +1527,13 @@ async function trackOrder() {
 
             orderResult.innerHTML = `
 
-                <div class="order-result">
+                <div>
 
                     <h3>
                         📦 Order Details
                     </h3>
+
+                    <br>
 
                     <p>
                         <strong>
@@ -1916,7 +1638,7 @@ async function trackOrder() {
 
             orderResult.innerHTML = `
 
-                <div class="error-message">
+                <div>
 
                     ❌ Unable to track order.
 
@@ -1974,7 +1696,6 @@ async function cancelOrder() {
                 `${API_URL}/orders/${encodeURIComponent(orderNumber)}/cancel`,
                 {
                     method: "PUT",
-
                     headers: {
                         "Content-Type":
                             "application/json"
@@ -1985,8 +1706,7 @@ async function cancelOrder() {
         let data = {};
 
         try {
-            data =
-                await response.json();
+            data = await response.json();
         } catch {
             data = {};
         }
@@ -2004,7 +1724,7 @@ async function cancelOrder() {
 
             orderResult.innerHTML = `
 
-                <div class="success-message">
+                <div>
 
                     ✅ Order cancelled successfully!
 
@@ -2043,7 +1763,7 @@ async function cancelOrder() {
 
             orderResult.innerHTML = `
 
-                <div class="error-message">
+                <div>
 
                     ❌ Unable to cancel order.
 
@@ -2101,7 +1821,6 @@ async function refundOrder() {
                 `${API_URL}/orders/${encodeURIComponent(orderNumber)}/refund`,
                 {
                     method: "POST",
-
                     headers: {
                         "Content-Type":
                             "application/json"
@@ -2112,8 +1831,7 @@ async function refundOrder() {
         let data = {};
 
         try {
-            data =
-                await response.json();
+            data = await response.json();
         } catch {
             data = {};
         }
@@ -2131,7 +1849,7 @@ async function refundOrder() {
 
             orderResult.innerHTML = `
 
-                <div class="success-message">
+                <div>
 
                     💰 Refund request successful!
 
@@ -2177,7 +1895,7 @@ async function refundOrder() {
 
             orderResult.innerHTML = `
 
-                <div class="error-message">
+                <div>
 
                     ❌ Unable to process refund.
 
@@ -2194,7 +1912,612 @@ async function refundOrder() {
 }
 
 // =========================================================
-// EVENT LISTENERS
+// ADMIN - LOAD USERS
+// =========================================================
+
+async function loadAdminUsers() {
+
+    try {
+
+        const response =
+            await fetch(
+                `${API_URL}/users`
+            );
+
+        const data =
+            await response.json();
+
+        if (!response.ok || !data.success) {
+
+            throw new Error(
+                data.error ||
+                "Unable to load users"
+            );
+        }
+
+        const users =
+            data.users || [];
+
+        displayAdminUsers(users);
+
+        updateAdminUserStats(users);
+
+        updateAdminProjectStats();
+
+    } catch (error) {
+
+        console.error(
+            "Admin users error:",
+            error
+        );
+
+        const tbody =
+            document.getElementById(
+                "admin-users-body"
+            );
+
+        if (tbody) {
+
+            tbody.innerHTML = `
+
+                <tr>
+
+                    <td
+                        colspan="7"
+                        class="empty-users"
+                    >
+                        ❌ Unable to load users.
+                        <br>
+                        ${escapeHTML(error.message)}
+                    </td>
+
+                </tr>
+            `;
+        }
+    }
+}
+
+// =========================================================
+// DISPLAY ADMIN USERS
+// =========================================================
+
+function displayAdminUsers(users) {
+
+    const tbody =
+        document.getElementById(
+            "admin-users-body"
+        );
+
+    const count =
+        document.getElementById(
+            "admin-user-count"
+        );
+
+    if (!tbody) {
+        return;
+    }
+
+    if (count) {
+
+        count.textContent =
+            `${users.length} User${users.length !== 1 ? "s" : ""}`;
+    }
+
+    if (users.length === 0) {
+
+        tbody.innerHTML = `
+
+            <tr>
+
+                <td
+                    colspan="7"
+                    class="empty-users"
+                >
+                    No users found
+                </td>
+
+            </tr>
+        `;
+
+        return;
+    }
+
+    tbody.innerHTML =
+        users.map(user => {
+
+            const status =
+                user.status || "Active";
+
+            const statusClass =
+                status === "Active"
+                    ? "status-active"
+                    : "status-inactive";
+
+            const nextStatus =
+                status === "Active"
+                    ? "Inactive"
+                    : "Active";
+
+            return `
+
+                <tr>
+
+                    <td>
+                        #${escapeHTML(String(user.id))}
+                    </td>
+
+                    <td>
+                        <strong>
+                            ${escapeHTML(
+                                user.name ||
+                                "Unknown"
+                            )}
+                        </strong>
+                    </td>
+
+                    <td>
+                        ${escapeHTML(
+                            user.email ||
+                            "-"
+                        )}
+                    </td>
+
+                    <td>
+                        ${escapeHTML(
+                            user.phone ||
+                            "-"
+                        )}
+                    </td>
+
+                    <td>
+
+                        <span
+                            class="${statusClass}"
+                        >
+                            ${escapeHTML(status)}
+                        </span>
+
+                    </td>
+
+                    <td>
+                        ${formatAdminDate(
+                            user.created_at
+                        )}
+                    </td>
+
+                    <td>
+
+                        <button
+                            class="action-btn view-btn"
+                            onclick="viewAdminUser(${user.id})"
+                        >
+                            👁 View
+                        </button>
+
+                        <button
+                            class="action-btn status-btn"
+                            onclick="changeAdminUserStatus(${user.id}, '${nextStatus}')"
+                        >
+                            ${
+                                nextStatus === "Active"
+                                    ? "🟢 Activate"
+                                    : "⏸ Deactivate"
+                            }
+                        </button>
+
+                        <button
+                            class="action-btn delete-btn"
+                            onclick="deleteAdminUser(${user.id})"
+                        >
+                            🗑 Delete
+                        </button>
+
+                    </td>
+
+                </tr>
+            `;
+
+        }).join("");
+}
+
+// =========================================================
+// ADMIN USER STATS
+// =========================================================
+
+function updateAdminUserStats(users) {
+
+    const totalUsers =
+        document.getElementById(
+            "admin-total-users"
+        );
+
+    const activeUsers =
+        document.getElementById(
+            "admin-active-users"
+        );
+
+    if (totalUsers) {
+
+        totalUsers.textContent =
+            users.length;
+    }
+
+    if (activeUsers) {
+
+        activeUsers.textContent =
+            users.filter(
+                user =>
+                    user.status === "Active"
+            ).length;
+    }
+}
+
+// =========================================================
+// ADMIN ADD USER
+// =========================================================
+
+async function addAdminUser() {
+
+    const nameInput =
+        document.getElementById(
+            "admin-user-name"
+        );
+
+    const emailInput =
+        document.getElementById(
+            "admin-user-email"
+        );
+
+    const phoneInput =
+        document.getElementById(
+            "admin-user-phone"
+        );
+
+    const name =
+        nameInput
+            ? nameInput.value.trim()
+            : "";
+
+    const email =
+        emailInput
+            ? emailInput.value.trim()
+            : "";
+
+    const phone =
+        phoneInput
+            ? phoneInput.value.trim()
+            : "";
+
+    if (!name || !email) {
+
+        alert(
+            "Please enter name and email."
+        );
+
+        return;
+    }
+
+    try {
+
+        const response =
+            await fetch(
+                `${API_URL}/users`,
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body: JSON.stringify({
+
+                        name: name,
+
+                        email: email,
+
+                        phone: phone
+                    })
+                }
+            );
+
+        const data =
+            await response.json();
+
+        if (!response.ok || !data.success) {
+
+            alert(
+                data.error ||
+                "Unable to add user"
+            );
+
+            return;
+        }
+
+        alert(
+            "✅ User added successfully!"
+        );
+
+        if (nameInput) {
+            nameInput.value = "";
+        }
+
+        if (emailInput) {
+            emailInput.value = "";
+        }
+
+        if (phoneInput) {
+            phoneInput.value = "";
+        }
+
+        await loadAdminUsers();
+
+    } catch (error) {
+
+        console.error(
+            "Add user error:",
+            error
+        );
+
+        alert(
+            "Unable to connect to server."
+        );
+    }
+}
+
+// =========================================================
+// ADMIN VIEW USER
+// =========================================================
+
+async function viewAdminUser(userId) {
+
+    try {
+
+        const response =
+            await fetch(
+                `${API_URL}/users/${userId}`
+            );
+
+        const data =
+            await response.json();
+
+        if (!response.ok || !data.success) {
+
+            alert(
+                data.error ||
+                "User not found"
+            );
+
+            return;
+        }
+
+        const user =
+            data.user;
+
+        alert(
+
+            "User Details\n\n" +
+
+            "ID: " +
+            user.id +
+
+            "\nName: " +
+            user.name +
+
+            "\nEmail: " +
+            user.email +
+
+            "\nPhone: " +
+            (user.phone || "-") +
+
+            "\nStatus: " +
+            user.status +
+
+            "\nCreated: " +
+            formatAdminDate(
+                user.created_at
+            )
+        );
+
+    } catch (error) {
+
+        console.error(
+            "View user error:",
+            error
+        );
+
+        alert(
+            "Unable to load user."
+        );
+    }
+}
+
+// =========================================================
+// ADMIN CHANGE STATUS
+// =========================================================
+
+async function changeAdminUserStatus(
+    userId,
+    newStatus
+) {
+
+    try {
+
+        const response =
+            await fetch(
+                `${API_URL}/users/${userId}/status`,
+                {
+                    method: "PUT",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body: JSON.stringify({
+
+                        status:
+                            newStatus
+                    })
+                }
+            );
+
+        const data =
+            await response.json();
+
+        if (!response.ok || !data.success) {
+
+            alert(
+                data.error ||
+                "Unable to update status"
+            );
+
+            return;
+        }
+
+        await loadAdminUsers();
+
+    } catch (error) {
+
+        console.error(
+            "Status update error:",
+            error
+        );
+
+        alert(
+            "Unable to update user status."
+        );
+    }
+}
+
+// =========================================================
+// ADMIN DELETE USER
+// =========================================================
+
+async function deleteAdminUser(userId) {
+
+    const confirmed =
+        confirm(
+            "Are you sure you want to delete this user?"
+        );
+
+    if (!confirmed) {
+        return;
+    }
+
+    try {
+
+        const response =
+            await fetch(
+                `${API_URL}/users/${userId}`,
+                {
+                    method: "DELETE"
+                }
+            );
+
+        const data =
+            await response.json();
+
+        if (!response.ok || !data.success) {
+
+            alert(
+                data.error ||
+                "Unable to delete user"
+            );
+
+            return;
+        }
+
+        alert(
+            "✅ User deleted successfully!"
+        );
+
+        await loadAdminUsers();
+
+    } catch (error) {
+
+        console.error(
+            "Delete user error:",
+            error
+        );
+
+        alert(
+            "Unable to delete user."
+        );
+    }
+}
+
+// =========================================================
+// ADMIN DATE
+// =========================================================
+
+function formatAdminDate(dateValue) {
+
+    if (!dateValue) {
+        return "-";
+    }
+
+    try {
+
+        return new Date(dateValue)
+            .toLocaleDateString("en-IN");
+
+    } catch {
+
+        return String(dateValue);
+    }
+}
+
+// =========================================================
+// ADMIN PROJECT STATS
+// =========================================================
+
+function updateAdminProjectStats() {
+
+    const productsCount =
+        document.getElementById(
+            "admin-total-products"
+        );
+
+    if (productsCount) {
+
+        productsCount.textContent =
+            allProducts.length;
+    }
+
+    const totalOrders =
+        document.getElementById(
+            "admin-total-orders"
+        );
+
+    if (totalOrders) {
+
+        const savedOrders =
+            JSON.parse(
+                localStorage.getItem(
+                    "orders"
+                ) || "[]"
+            );
+
+        totalOrders.textContent =
+            savedOrders.length;
+    }
+}
+
+// =========================================================
+// CHECKOUT BUTTON
+// =========================================================
+
+if (checkoutButton) {
+
+    checkoutButton.addEventListener(
+        "click",
+        openOrderForm
+    );
+}
+
+// =========================================================
+// SEND BUTTON
 // =========================================================
 
 if (sendButton) {
@@ -2205,11 +2528,15 @@ if (sendButton) {
     );
 }
 
+// =========================================================
+// CHAT ENTER KEY
+// =========================================================
+
 if (messageInput) {
 
     messageInput.addEventListener(
         "keydown",
-        function (event) {
+        function(event) {
 
             if (event.key === "Enter") {
 
@@ -2221,6 +2548,10 @@ if (messageInput) {
     );
 }
 
+// =========================================================
+// LOAD PRODUCTS BUTTON
+// =========================================================
+
 if (loadProductsButton) {
 
     loadProductsButton.addEventListener(
@@ -2228,6 +2559,10 @@ if (loadProductsButton) {
         loadProducts
     );
 }
+
+// =========================================================
+// TRACK BUTTON
+// =========================================================
 
 if (trackOrderButton) {
 
@@ -2237,6 +2572,10 @@ if (trackOrderButton) {
     );
 }
 
+// =========================================================
+// CANCEL BUTTON
+// =========================================================
+
 if (cancelOrderButton) {
 
     cancelOrderButton.addEventListener(
@@ -2244,6 +2583,10 @@ if (cancelOrderButton) {
         cancelOrder
     );
 }
+
+// =========================================================
+// REFUND BUTTON
+// =========================================================
 
 if (refundOrderButton) {
 
@@ -2259,11 +2602,13 @@ if (refundOrderButton) {
 
 document.addEventListener(
     "DOMContentLoaded",
-    function () {
+    function() {
 
         updateCartUI();
 
         loadProducts();
+
+        updateAdminProjectStats();
 
         const lastOrder =
             localStorage.getItem(
@@ -2276,9 +2621,10 @@ document.addEventListener(
                 lastOrder
             );
         }
+
     }
 );
 
 console.log(
-    "TechStore AI Customer Support loaded successfully."
+    "✅ TechStore AI Customer Support loaded successfully."
 );

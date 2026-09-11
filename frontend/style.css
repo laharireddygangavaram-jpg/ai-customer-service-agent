@@ -1211,5 +1211,155 @@ button {
     }
 
 }
+/* =========================================================
+   ADMIN DASHBOARD
+========================================================= */
+
+.admin-card {
+    background: white;
+    border-radius: 14px;
+    padding: 24px;
+    margin-top: 25px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.06);
+}
+
+.admin-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.admin-card-header h2 {
+    margin: 0;
+    font-size: 21px;
+}
+
+.admin-card-header p {
+    margin-top: 5px;
+    color: #777;
+}
+
+.admin-form {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr auto;
+    gap: 12px;
+}
+
+.admin-form input {
+    padding: 12px 14px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    outline: none;
+    font-size: 14px;
+}
+
+.admin-form input:focus {
+    border-color: #4f46e5;
+}
+
+.primary-btn {
+    border: none;
+    background: #4f46e5;
+    color: white;
+    padding: 11px 18px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.primary-btn:hover {
+    opacity: 0.9;
+}
+
+.user-count {
+    background: #eef2ff;
+    color: #4f46e5;
+    padding: 8px 14px;
+    border-radius: 20px;
+    font-weight: 600;
+}
+
+.table-container {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.users-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.users-table th,
+.users-table td {
+    padding: 14px 12px;
+    text-align: left;
+    border-bottom: 1px solid #eee;
+}
+
+.users-table th {
+    background: #f8f9fc;
+    font-weight: 600;
+}
+
+.users-table tbody tr:hover {
+    background: #fafafa;
+}
+
+.status-active {
+    background: #dcfce7;
+    color: #166534;
+    padding: 6px 10px;
+    border-radius: 15px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.status-inactive {
+    background: #fee2e2;
+    color: #991b1b;
+    padding: 6px 10px;
+    border-radius: 15px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.action-btn {
+    border: none;
+    padding: 7px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-right: 5px;
+    font-size: 12px;
+}
+
+.view-btn {
+    background: #e0e7ff;
+    color: #3730a3;
+}
+
+.status-btn {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.delete-btn {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.empty-users {
+    text-align: center !important;
+    padding: 30px !important;
+    color: #777;
+}
+
+@media (max-width: 900px) {
+
+    .admin-form {
+        grid-template-columns: 1fr;
+    }
+
+}
 
 

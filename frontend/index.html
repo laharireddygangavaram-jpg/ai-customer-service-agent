@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 
@@ -8,234 +7,851 @@
 
     <title>TechStore AI Customer Support</title>
 
-    <link rel="stylesheet" href="style.css">
+    <style>
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f6f8;
+            color: #222;
+        }
+
+        /* =====================================================
+           LAYOUT
+        ===================================================== */
+
+        .app-container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+
+        /* =====================================================
+           SIDEBAR
+        ===================================================== */
+
+        .sidebar {
+            width: 240px;
+            background: #111827;
+            color: white;
+            padding: 20px 15px;
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            left: 0;
+        }
+
+        .logo {
+            font-size: 22px;
+            font-weight: bold;
+            margin-bottom: 30px;
+            padding: 10px;
+        }
+
+        .nav-menu {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .nav-button {
+            width: 100%;
+            border: none;
+            background: transparent;
+            color: #d1d5db;
+            padding: 13px 15px;
+            border-radius: 8px;
+            text-align: left;
+            cursor: pointer;
+            font-size: 15px;
+        }
+
+        .nav-button:hover {
+            background: #1f2937;
+            color: white;
+        }
+
+        .nav-button.active {
+            background: #4f46e5;
+            color: white;
+        }
+
+
+        /* =====================================================
+           MAIN CONTENT
+        ===================================================== */
+
+        .main-content {
+            margin-left: 240px;
+            width: calc(100% - 240px);
+            padding: 30px;
+        }
+
+
+        /* =====================================================
+           PAGE SECTIONS
+        ===================================================== */
+
+        .page-section {
+            display: none;
+        }
+
+        .page-section.active {
+            display: block;
+        }
+
+
+        /* =====================================================
+           HEADER
+        ===================================================== */
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+        }
+
+        .section-header h1 {
+            font-size: 28px;
+            margin-bottom: 5px;
+        }
+
+        .section-header p {
+            color: #6b7280;
+        }
+
+
+        /* =====================================================
+           BUTTONS
+        ===================================================== */
+
+        .primary-btn {
+            border: none;
+            background: #4f46e5;
+            color: white;
+            padding: 11px 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .primary-btn:hover {
+            opacity: 0.9;
+        }
+
+        .secondary-btn {
+            border: none;
+            background: #e5e7eb;
+            color: #111827;
+            padding: 10px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+
+        /* =====================================================
+           STATS
+        ===================================================== */
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 18px;
+            margin-bottom: 25px;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 14px;
+            padding: 22px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.06);
+        }
+
+        .stat-icon {
+            font-size: 30px;
+        }
+
+        .stat-card h3 {
+            font-size: 14px;
+            color: #6b7280;
+            margin-bottom: 5px;
+        }
+
+        .stat-card h2 {
+            font-size: 25px;
+        }
+
+
+        /* =====================================================
+           AI ASSISTANT
+        ===================================================== */
+
+        .welcome-card {
+            background: white;
+            border-radius: 14px;
+            padding: 30px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.06);
+        }
+
+        .welcome-card h2 {
+            margin-bottom: 8px;
+        }
+
+        .welcome-card p {
+            color: #6b7280;
+        }
+
+
+        .chat-container {
+            background: white;
+            border-radius: 14px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.06);
+        }
+
+        .chat-header {
+            padding: 18px 20px;
+            border-bottom: 1px solid #eee;
+            font-weight: bold;
+        }
+
+        .chat-messages {
+            height: 400px;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            display: flex;
+        }
+
+        .message.user {
+            justify-content: flex-end;
+        }
+
+        .message-content {
+            max-width: 75%;
+            padding: 12px 15px;
+            border-radius: 10px;
+            background: #f3f4f6;
+        }
+
+        .message.user .message-content {
+            background: #4f46e5;
+            color: white;
+        }
+
+        .chat-input-area {
+            display: flex;
+            gap: 10px;
+            padding: 15px;
+            border-top: 1px solid #eee;
+        }
+
+        .chat-input-area input {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            outline: none;
+        }
+
+        .chat-input-area button {
+            border: none;
+            background: #4f46e5;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+
+        /* =====================================================
+           QUICK ACTIONS
+        ===================================================== */
+
+        .quick-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .quick-action {
+            border: 1px solid #ddd;
+            background: white;
+            padding: 9px 14px;
+            border-radius: 20px;
+            cursor: pointer;
+        }
+
+        .quick-action:hover {
+            background: #f3f4f6;
+        }
+
+
+        /* =====================================================
+           PRODUCTS
+        ===================================================== */
+
+        .products-toolbar {
+            margin-bottom: 25px;
+        }
+
+        .store-section {
+            background: white;
+            border-radius: 14px;
+            padding: 20px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.06);
+        }
+
+        .store-section h2 {
+            margin-bottom: 18px;
+        }
+
+        .products-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 18px;
+        }
+
+        .product-card {
+            border: 1px solid #eee;
+            border-radius: 12px;
+            overflow: hidden;
+            background: white;
+        }
+
+        .product-image {
+            width: 100%;
+            height: 180px;
+            object-fit: contain;
+            background: #f8fafc;
+        }
+
+        .product-info {
+            padding: 15px;
+        }
+
+        .product-info h3 {
+            font-size: 16px;
+            margin-bottom: 8px;
+        }
+
+        .product-brand {
+            color: #6b7280;
+            font-size: 13px;
+            margin-bottom: 7px;
+        }
+
+        .product-price {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 6px;
+        }
+
+        .product-rating {
+            font-size: 13px;
+            margin-bottom: 8px;
+        }
+
+        .product-stock {
+            font-size: 13px;
+            margin-bottom: 12px;
+        }
+
+        .product-actions {
+            display: flex;
+            gap: 7px;
+        }
+
+        .product-actions button {
+            flex: 1;
+            padding: 9px;
+            border: none;
+            border-radius: 7px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .add-cart-btn {
+            background: #4f46e5;
+            color: white;
+        }
+
+        .view-product-btn {
+            background: #e5e7eb;
+            color: #111827;
+        }
+
+
+        /* =====================================================
+           CART
+        ===================================================== */
+
+        .cart-container {
+            background: white;
+            border-radius: 14px;
+            padding: 25px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.06);
+        }
+
+        .cart-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 15px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .cart-item-image {
+            width: 80px;
+            height: 80px;
+            object-fit: contain;
+            background: #f8fafc;
+            border-radius: 8px;
+        }
+
+        .cart-item-info {
+            flex: 1;
+        }
+
+        .quantity-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .quantity-controls button {
+            width: 30px;
+            height: 30px;
+            border: none;
+            background: #e5e7eb;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .remove-cart-btn {
+            border: none;
+            background: #fee2e2;
+            color: #b91c1c;
+            padding: 8px 12px;
+            border-radius: 7px;
+            cursor: pointer;
+        }
+
+        .cart-summary {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 2px solid #eee;
+            text-align: right;
+        }
+
+        .cart-total {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+
+
+        /* =====================================================
+           ORDERS
+        ===================================================== */
+
+        .order-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+
+        .order-card {
+            background: white;
+            border-radius: 14px;
+            padding: 25px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.06);
+        }
+
+        .order-card h2 {
+            margin-bottom: 10px;
+        }
+
+        .order-card p {
+            color: #6b7280;
+            margin-bottom: 15px;
+        }
+
+        .order-card input {
+            width: 100%;
+            padding: 11px;
+            border: 1px solid #ddd;
+            border-radius: 7px;
+            margin-bottom: 10px;
+        }
+
+        .order-result {
+            background: white;
+            margin-top: 25px;
+            border-radius: 14px;
+            padding: 25px;
+            min-height: 80px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.06);
+        }
+
+
+        /* =====================================================
+           ADMIN
+        ===================================================== */
+
+        .admin-card {
+            background: white;
+            border-radius: 14px;
+            padding: 24px;
+            margin-top: 25px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.06);
+        }
+
+        .admin-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .admin-card-header h2 {
+            margin-bottom: 5px;
+        }
+
+        .admin-card-header p {
+            color: #6b7280;
+        }
+
+        .admin-form {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr auto;
+            gap: 12px;
+        }
+
+        .admin-form input {
+            padding: 12px 14px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            outline: none;
+            font-size: 14px;
+        }
+
+        .admin-form input:focus {
+            border-color: #4f46e5;
+        }
+
+        .user-count {
+            background: #eef2ff;
+            color: #4f46e5;
+            padding: 8px 14px;
+            border-radius: 20px;
+            font-weight: 600;
+        }
+
+        .table-container {
+            width: 100%;
+            overflow-x: auto;
+        }
+
+        .users-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .users-table th,
+        .users-table td {
+            padding: 14px 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+            white-space: nowrap;
+        }
+
+        .users-table th {
+            background: #f8f9fc;
+            font-weight: 600;
+        }
+
+        .users-table tbody tr:hover {
+            background: #fafafa;
+        }
+
+        .status-active {
+            background: #dcfce7;
+            color: #166534;
+            padding: 6px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-inactive {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 6px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .action-btn {
+            border: none;
+            padding: 7px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-right: 5px;
+            font-size: 12px;
+        }
+
+        .view-btn {
+            background: #e0e7ff;
+            color: #3730a3;
+        }
+
+        .status-btn {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .delete-btn {
+            background: #fee2e2;
+            color: #b91c1c;
+        }
+
+        .empty-users {
+            text-align: center !important;
+            padding: 30px !important;
+            color: #777;
+        }
+
+
+        /* =====================================================
+           RESPONSIVE
+        ===================================================== */
+
+        @media (max-width: 1100px) {
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .products-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+
+            .order-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .admin-form {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+
+        @media (max-width: 800px) {
+
+            .sidebar {
+                width: 200px;
+            }
+
+            .main-content {
+                margin-left: 200px;
+                width: calc(100% - 200px);
+                padding: 20px;
+            }
+
+            .products-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+
+        @media (max-width: 600px) {
+
+            .sidebar {
+                position: static;
+                width: 100%;
+                min-height: auto;
+            }
+
+            .app-container {
+                flex-direction: column;
+            }
+
+            .main-content {
+                margin-left: 0;
+                width: 100%;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .products-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .admin-form {
+                grid-template-columns: 1fr;
+            }
+
+            .section-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+        }
+
+    </style>
+
 </head>
+
 
 <body>
 
-<div class="app">
+<div class="app-container">
 
-    <!-- ================= SIDEBAR ================= -->
+
+    <!-- =====================================================
+         SIDEBAR
+    ====================================================== -->
 
     <aside class="sidebar">
 
         <div class="logo">
-            <div class="logo-icon">🤖</div>
-
-            <div>
-                <h2>TechStore</h2>
-                <p>AI Support</p>
-            </div>
+            🤖 TechStore AI
         </div>
 
-        <div class="console-title">
-            CUSTOMER CONSOLE
-        </div>
+        <div class="nav-menu">
 
-        <nav class="navigation">
-
-            <button class="nav-item active" onclick="showSection('assistant', this)">
-                <span>🤖</span>
-                <span>Assistant</span>
+            <button
+                class="nav-button active"
+                onclick="showSection('assistant', this)"
+            >
+                🤖 Assistant
             </button>
 
-            <button class="nav-item" onclick="showSection('orders', this)">
-                <span>📦</span>
-                <span>My Orders</span>
+            <button
+                class="nav-button"
+                onclick="showSection('orders', this)"
+            >
+                📦 My Orders
             </button>
 
-            <button class="nav-item" onclick="showSection('products', this)">
-                <span>🛍️</span>
-                <span>Products</span>
+            <button
+                class="nav-button"
+                onclick="showSection('products', this)"
+            >
+                🛍️ Products
             </button>
 
-            <button class="nav-item" onclick="showSection('cart', this)">
-                <span>🛒</span>
-                <span>Shopping Cart</span>
+            <button
+                class="nav-button"
+                onclick="showSection('cart', this)"
+            >
+                🛒 Shopping Cart
             </button>
 
-            <button class="nav-item" onclick="showSection('admin', this)">
-                <span>⚙️</span>
-                <span>Admin Module</span>
+            <button
+                class="nav-button"
+                onclick="showSection('admin', this)"
+            >
+                👨‍💼 Admin Module
             </button>
-
-        </nav>
-
-        <div class="sidebar-bottom">
-
-            <div class="system-status">
-                <span class="status-dot"></span>
-
-                <div>
-                    <strong>System Online</strong>
-                    <small>AI Support Active</small>
-                </div>
-            </div>
-
-            <p class="powered">
-                Powered by Ollama Gemma3
-            </p>
 
         </div>
 
     </aside>
 
 
-    <!-- ================= MAIN CONTENT ================= -->
+    <!-- =====================================================
+         MAIN CONTENT
+    ====================================================== -->
 
     <main class="main-content">
 
-        <!-- TOP BAR -->
 
-        <header class="topbar">
+        <!-- =================================================
+             ASSISTANT SECTION
+        ================================================== -->
 
-            <div>
-                <p class="small-label">CUSTOMER CONSOLE</p>
-                <h1>AI Customer Support Agent</h1>
-            </div>
+        <section
+            id="assistant-section"
+            class="page-section active"
+        >
 
-            <div class="online-badge">
-                <span class="status-dot"></span>
-                System Online
-            </div>
-
-        </header>
-
-
-        <!-- ================= ASSISTANT ================= -->
-
-        <section id="assistant-section" class="page-section active-section">
-
-            <div class="welcome-section">
+            <div class="section-header">
 
                 <div>
-                    <p class="small-label">AI CUSTOMER SUPPORT AGENT</p>
-
-                    <h2>
-                        How can we help you?
-                    </h2>
+                    <h1>AI Customer Support</h1>
 
                     <p>
-                        Get instant help with products, orders,
-                        delivery, cancellations and refunds.
+                        Ask me anything about products, orders and support.
                     </p>
                 </div>
 
             </div>
 
 
-            <!-- DASHBOARD CARDS -->
+            <div class="welcome-card">
 
-            <div class="stats-grid">
+                <h2>Welcome to TechStore AI 👋</h2>
 
-                <div class="stat-card">
-
-                    <div class="stat-icon">📦</div>
-
-                    <div>
-                        <span>OPEN ORDERS</span>
-                        <strong id="open-orders-count">0</strong>
-                        <small>Live order records</small>
-                    </div>
-
-                </div>
-
-
-                <div class="stat-card">
-
-                    <div class="stat-icon">🛍️</div>
-
-                    <div>
-                        <span>PRODUCTS</span>
-                        <strong id="product-count">0</strong>
-                        <small>Available products</small>
-                    </div>
-
-                </div>
-
-
-                <div class="stat-card">
-
-                    <div class="stat-icon">⚡</div>
-
-                    <div>
-                        <span>AI STATUS</span>
-                        <strong>Online</strong>
-                        <small>AI assisted support</small>
-                    </div>
-
-                </div>
-
-            </div>
-
-
-            <!-- AI CHAT -->
-
-            <div class="content-card chat-card">
-
-                <div class="card-heading">
-
-                    <div>
-                        <p class="small-label">AI ASSISTANT</p>
-                        <h2>🤖 TechStore AI Assistant</h2>
-                    </div>
-
-                    <span class="secure-badge">
-                        🔒 SECURE SESSION
-                    </span>
-
-                </div>
-
-
-                <div id="chat-box" class="chat-box">
-
-                    <div class="message bot">
-                        Hello! 👋 Welcome to TechStore Customer Support.
-                        <br><br>
-                        I can help you with products, orders, delivery,
-                        cancellations and refunds.
-                        <br><br>
-                        What do you need today?
-                    </div>
-
-                </div>
-
-
-                <div class="input-area">
-
-                    <input
-                        type="text"
-                        id="message-input"
-                        placeholder="Ask about products, orders, delivery..."
-                        autocomplete="off"
-                    >
-
-                    <button
-                        type="button"
-                        id="send-button"
-                        class="primary-button"
-                    >
-                        Send
-                    </button>
-
-                </div>
+                <p>
+                    I can help you find products, compare products,
+                    place orders, track orders, cancel orders and request refunds.
+                </p>
 
 
                 <div class="quick-actions">
 
-                    <button onclick="quickMessage('show me products')">
+                    <button
+                        class="quick-action"
+                        onclick="quickMessage('show me products')"
+                    >
                         🛍️ Show Products
                     </button>
 
-                    <button onclick="quickMessage('I need a laptop')">
-                        💻 Find Laptop
+                    <button
+                        class="quick-action"
+                        onclick="quickMessage('how to order')"
+                    >
+                        🛒 How to Order
                     </button>
 
-                    <button onclick="quickMessage('track my order')">
+                    <button
+                        class="quick-action"
+                        onclick="quickMessage('track my order')"
+                    >
                         📦 Track Order
                     </button>
 
-                    <button onclick="quickMessage('refund my order')">
+                    <button
+                        class="quick-action"
+                        onclick="quickMessage('cancel my order')"
+                    >
+                        ❌ Cancel Order
+                    </button>
+
+                    <button
+                        class="quick-action"
+                        onclick="quickMessage('refund my order')"
+                    >
                         💰 Refund
                     </button>
 
@@ -243,148 +859,249 @@
 
             </div>
 
+
+            <!-- STATS -->
+
+            <div class="stats-grid">
+
+                <div class="stat-card">
+
+                    <div class="stat-icon">
+                        📦
+                    </div>
+
+                    <div>
+
+                        <h3>Open Orders</h3>
+
+                        <h2 id="open-orders-count">
+                            0
+                        </h2>
+
+                    </div>
+
+                </div>
+
+
+                <div class="stat-card">
+
+                    <div class="stat-icon">
+                        🛍️
+                    </div>
+
+                    <div>
+
+                        <h3>Products</h3>
+
+                        <h2 id="products-count">
+                            0
+                        </h2>
+
+                    </div>
+
+                </div>
+
+
+                <div class="stat-card">
+
+                    <div class="stat-icon">
+                        🤖
+                    </div>
+
+                    <div>
+
+                        <h3>AI Status</h3>
+
+                        <h2>
+                            Online
+                        </h2>
+
+                    </div>
+
+                </div>
+
+
+                <div class="stat-card">
+
+                    <div class="stat-icon">
+                        🛒
+                    </div>
+
+                    <div>
+
+                        <h3>Cart Items</h3>
+
+                        <h2 id="cart-count">
+                            0
+                        </h2>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- CHAT -->
+
+            <div class="chat-container">
+
+                <div class="chat-header">
+                    🤖 AI Assistant
+                    <span style="float:right;color:#16a34a;">
+                        ● Online
+                    </span>
+                </div>
+
+
+                <div
+                    id="chat-messages"
+                    class="chat-messages"
+                >
+
+                    <div class="message assistant">
+
+                        <div class="message-content">
+
+                            Hello! 👋
+
+                            I'm your AI Customer Support Assistant.
+
+                            <br><br>
+
+                            I can help you with products,
+                            comparisons, orders and refunds.
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <div class="chat-input-area">
+
+                    <input
+                        type="text"
+                        id="chat-input"
+                        placeholder="Ask something..."
+                    >
+
+                    <button id="send-button">
+                        Send
+                    </button>
+
+                </div>
+
+            </div>
+
         </section>
 
 
-        <!-- ================= PRODUCTS ================= -->
 
-        <section id="products-section" class="page-section">
+        <!-- =================================================
+             PRODUCTS SECTION
+        ================================================== -->
 
-            <div class="page-title">
+        <section
+            id="products-section"
+            class="page-section"
+        >
+
+            <div class="section-header">
 
                 <div>
-                    <p class="small-label">SHOPPING</p>
 
-                    <h2>🛍️ Products</h2>
+                    <h1>Products</h1>
 
                     <p>
-                        Browse products from different stores.
+                        Compare products from different stores.
                     </p>
+
                 </div>
 
                 <button
-                    type="button"
-                    id="load-products-button"
-                    class="primary-button"
+                    id="load-products-btn"
+                    class="primary-btn"
                 >
-                    Load Products
+                    🔄 Load Products
                 </button>
 
             </div>
 
 
-            <div class="content-card">
+            <div id="products-loading"
+                 style="display:none;margin-bottom:20px;">
+                Loading products...
+            </div>
 
-                <!-- AMAZON -->
 
-                <div class="store-section">
+            <!-- AMAZON -->
 
-                    <div class="store-title">
-                        <div class="store-logo amazon-logo">
-                            A
-                        </div>
+            <div class="store-section">
 
-                        <div>
-                            <h3>Amazon</h3>
-                            <p>Amazon products</p>
-                        </div>
-                    </div>
+                <h2>🛒 Amazon</h2>
 
-                    <div
-                        id="amazon-products"
-                        class="products-container"
-                    >
-                        <p class="store-placeholder">
-                            Click "Load Products" to view Amazon products.
-                        </p>
-                    </div>
+                <div
+                    id="amazon-products"
+                    class="products-grid"
+                >
+
+                    <p>No products loaded.</p>
 
                 </div>
 
+            </div>
 
-                <!-- FLIPKART -->
 
-                <div class="store-section">
+            <!-- FLIPKART -->
 
-                    <div class="store-title">
+            <div class="store-section">
 
-                        <div class="store-logo flipkart-logo">
-                            F
-                        </div>
+                <h2>🛒 Flipkart</h2>
 
-                        <div>
-                            <h3>Flipkart</h3>
-                            <p>Flipkart products</p>
-                        </div>
+                <div
+                    id="flipkart-products"
+                    class="products-grid"
+                >
 
-                    </div>
-
-                    <div
-                        id="flipkart-products"
-                        class="products-container"
-                    >
-                        <p class="store-placeholder">
-                            Flipkart products will appear here.
-                        </p>
-                    </div>
+                    <p>No products loaded.</p>
 
                 </div>
 
+            </div>
 
-                <!-- MEESHO -->
 
-                <div class="store-section">
+            <!-- MEESHO -->
 
-                    <div class="store-title">
+            <div class="store-section">
 
-                        <div class="store-logo meesho-logo">
-                            M
-                        </div>
+                <h2>🛍️ Meesho</h2>
 
-                        <div>
-                            <h3>Meesho</h3>
-                            <p>Meesho products</p>
-                        </div>
+                <div
+                    id="meesho-products"
+                    class="products-grid"
+                >
 
-                    </div>
-
-                    <div
-                        id="meesho-products"
-                        class="products-container"
-                    >
-                        <p class="store-placeholder">
-                            Meesho products will appear here.
-                        </p>
-                    </div>
+                    <p>No products loaded.</p>
 
                 </div>
 
+            </div>
 
-                <!-- MYNTRA -->
 
-                <div class="store-section">
+            <!-- MYNTRA -->
 
-                    <div class="store-title">
+            <div class="store-section">
 
-                        <div class="store-logo myntra-logo">
-                            M
-                        </div>
+                <h2>👕 Myntra</h2>
 
-                        <div>
-                            <h3>Myntra</h3>
-                            <p>Myntra products</p>
-                        </div>
+                <div
+                    id="myntra-products"
+                    class="products-grid"
+                >
 
-                    </div>
-
-                    <div
-                        id="myntra-products"
-                        class="products-container"
-                    >
-                        <p class="store-placeholder">
-                            Myntra products will appear here.
-                        </p>
-                    </div>
+                    <p>No products loaded.</p>
 
                 </div>
 
@@ -393,93 +1110,112 @@
         </section>
 
 
-        <!-- ================= CART ================= -->
 
-        <section id="cart-section" class="page-section">
+        <!-- =================================================
+             CART SECTION
+        ================================================== -->
 
-            <div class="page-title">
+        <section
+            id="cart-section"
+            class="page-section"
+        >
+
+            <div class="section-header">
 
                 <div>
-                    <p class="small-label">SHOPPING</p>
 
-                    <h2>🛒 Shopping Cart</h2>
+                    <h1>Shopping Cart</h1>
 
                     <p>
-                        Review your selected products before placing an order.
+                        Review your products before placing the order.
                     </p>
+
                 </div>
 
             </div>
 
 
-            <div class="content-card">
+            <div class="cart-container">
 
-                <div id="cart-container">
+                <div id="cart-items">
 
-                    <p class="empty-cart">
+                    <p>
                         Your cart is empty.
                     </p>
 
                 </div>
 
 
-                <div
-                    id="cart-summary"
-                    class="cart-summary"
-                ></div>
+                <div class="cart-summary">
+
+                    <div class="cart-total">
+
+                        Total:
+                        ₹<span id="cart-total">0</span>
+
+                    </div>
+
+                    <button
+                        id="checkout-btn"
+                        class="primary-btn"
+                    >
+                        Place Order
+                    </button>
+
+                </div>
 
             </div>
 
         </section>
 
 
-        <!-- ================= ORDERS ================= -->
 
-        <section id="orders-section" class="page-section">
+        <!-- =================================================
+             ORDERS SECTION
+        ================================================== -->
 
-            <div class="page-title">
+        <section
+            id="orders-section"
+            class="page-section"
+        >
+
+            <div class="section-header">
 
                 <div>
-                    <p class="small-label">ORDER MANAGEMENT</p>
 
-                    <h2>📦 My Orders</h2>
+                    <h1>Order Management</h1>
 
                     <p>
-                        Track, cancel or request a refund for your order.
+                        Track, cancel and request refunds.
                     </p>
+
                 </div>
 
             </div>
 
 
-            <div class="order-management">
+            <div class="order-grid">
 
 
                 <!-- TRACK -->
 
-                <div class="order-action content-card">
+                <div class="order-card">
 
-                    <div class="order-icon">
-                        🔍
-                    </div>
-
-                    <h3>Track Order</h3>
+                    <h2>📦 Track Order</h2>
 
                     <p>
-                        Check your order status and delivery details.
+                        Check your order status.
                     </p>
 
                     <input
                         type="text"
                         id="track-order-number"
-                        placeholder="Enter Order Number"
-                        autocomplete="off"
+                        placeholder="ORD-XXXXXXXX"
                     >
 
                     <button
-                        type="button"
-                        id="track-order-button"
-                        class="primary-button full-button"
+                        id="track-order-btn"
+                        class="primary-btn"
                     >
                         Track Order
                     </button>
@@ -489,29 +1225,23 @@
 
                 <!-- CANCEL -->
 
-                <div class="order-action content-card">
+                <div class="order-card">
 
-                    <div class="order-icon">
-                        ❌
-                    </div>
-
-                    <h3>Cancel Order</h3>
+                    <h2>❌ Cancel Order</h2>
 
                     <p>
-                        Cancel an eligible order.
+                        Cancel an existing order.
                     </p>
 
                     <input
                         type="text"
                         id="cancel-order-number"
-                        placeholder="Enter Order Number"
-                        autocomplete="off"
+                        placeholder="ORD-XXXXXXXX"
                     >
 
                     <button
-                        type="button"
-                        id="cancel-order-button"
-                        class="danger-button full-button"
+                        id="cancel-order-btn"
+                        class="primary-btn"
                     >
                         Cancel Order
                     </button>
@@ -521,29 +1251,23 @@
 
                 <!-- REFUND -->
 
-                <div class="order-action content-card">
+                <div class="order-card">
 
-                    <div class="order-icon">
-                        💰
-                    </div>
-
-                    <h3>Refund Order</h3>
+                    <h2>💰 Refund</h2>
 
                     <p>
-                        Request a refund for an eligible order.
+                        Request a refund for your order.
                     </p>
 
                     <input
                         type="text"
                         id="refund-order-number"
-                        placeholder="Enter Order Number"
-                        autocomplete="off"
+                        placeholder="ORD-XXXXXXXX"
                     >
 
                     <button
-                        type="button"
-                        id="refund-order-button"
-                        class="success-button full-button"
+                        id="refund-order-btn"
+                        class="primary-btn"
                     >
                         Request Refund
                     </button>
@@ -556,88 +1280,258 @@
             <div
                 id="order-result"
                 class="order-result"
-            ></div>
+            >
+
+                Order information will appear here.
+
+            </div>
 
         </section>
 
 
-        <!-- ================= ADMIN ================= -->
 
-        <section id="admin-section" class="page-section">
+        <!-- =================================================
+             ADMIN SECTION
+        ================================================== -->
 
-            <div class="page-title">
+        <section
+            id="admin-section"
+            class="page-section"
+        >
+
+            <div class="section-header">
 
                 <div>
-                    <p class="small-label">ADMINISTRATION</p>
 
-                    <h2>⚙️ Admin Module</h2>
+                    <h1>Admin Dashboard</h1>
 
                     <p>
-                        Manage the TechStore customer support system.
+                        Manage users and monitor the application.
                     </p>
+
+                </div>
+
+                <button
+                    class="primary-btn"
+                    onclick="loadAdminUsers()"
+                >
+                    🔄 Refresh Users
+                </button>
+
+            </div>
+
+
+            <!-- ADMIN STATISTICS -->
+
+            <div class="stats-grid">
+
+
+                <div class="stat-card">
+
+                    <div class="stat-icon">
+                        👥
+                    </div>
+
+                    <div>
+
+                        <h3>Total Users</h3>
+
+                        <h2 id="admin-total-users">
+                            0
+                        </h2>
+
+                    </div>
+
+                </div>
+
+
+                <div class="stat-card">
+
+                    <div class="stat-icon">
+                        🟢
+                    </div>
+
+                    <div>
+
+                        <h3>Active Users</h3>
+
+                        <h2 id="admin-active-users">
+                            0
+                        </h2>
+
+                    </div>
+
+                </div>
+
+
+                <div class="stat-card">
+
+                    <div class="stat-icon">
+                        📦
+                    </div>
+
+                    <div>
+
+                        <h3>Total Orders</h3>
+
+                        <h2 id="admin-total-orders">
+                            0
+                        </h2>
+
+                    </div>
+
+                </div>
+
+
+                <div class="stat-card">
+
+                    <div class="stat-icon">
+                        🛍️
+                    </div>
+
+                    <div>
+
+                        <h3>Total Products</h3>
+
+                        <h2 id="admin-total-products">
+                            0
+                        </h2>
+
+                    </div>
+
                 </div>
 
             </div>
 
 
-            <div class="admin-grid">
 
-                <div class="admin-card">
+            <!-- ADD USER -->
 
-                    <div class="admin-icon">
-                        📦
+            <div class="admin-card">
+
+                <div class="admin-card-header">
+
+                    <div>
+
+                        <h2>
+                            Add New User
+                        </h2>
+
+                        <p>
+                            Create a new customer account.
+                        </p>
+
                     </div>
-
-                    <h3>Order Management</h3>
-
-                    <p>
-                        Monitor customer orders and order status.
-                    </p>
 
                 </div>
 
 
-                <div class="admin-card">
+                <div class="admin-form">
 
-                    <div class="admin-icon">
-                        🛍️
+                    <input
+                        type="text"
+                        id="admin-user-name"
+                        placeholder="Enter user name"
+                    >
+
+                    <input
+                        type="email"
+                        id="admin-user-email"
+                        placeholder="Enter email"
+                    >
+
+                    <input
+                        type="text"
+                        id="admin-user-phone"
+                        placeholder="Enter phone number"
+                    >
+
+                    <button
+                        class="primary-btn"
+                        onclick="addAdminUser()"
+                    >
+                        ➕ Add User
+                    </button>
+
+                </div>
+
+            </div>
+
+
+
+            <!-- USERS TABLE -->
+
+            <div class="admin-card">
+
+                <div class="admin-card-header">
+
+                    <div>
+
+                        <h2>
+                            Users Management
+                        </h2>
+
+                        <p>
+                            View and manage all registered users.
+                        </p>
+
                     </div>
 
-                    <h3>Product Management</h3>
-
-                    <p>
-                        View products available across stores.
-                    </p>
+                    <span
+                        id="admin-user-count"
+                        class="user-count"
+                    >
+                        0 Users
+                    </span>
 
                 </div>
 
 
-                <div class="admin-card">
+                <div class="table-container">
 
-                    <div class="admin-icon">
-                        🤖
-                    </div>
+                    <table class="users-table">
 
-                    <h3>AI Assistant</h3>
+                        <thead>
 
-                    <p>
-                        AI customer support powered by Ollama Gemma3.
-                    </p>
+                            <tr>
 
-                </div>
+                                <th>ID</th>
+
+                                <th>Name</th>
+
+                                <th>Email</th>
+
+                                <th>Phone</th>
+
+                                <th>Status</th>
+
+                                <th>Created Date</th>
+
+                                <th>Actions</th>
+
+                            </tr>
+
+                        </thead>
 
 
-                <div class="admin-card">
+                        <tbody
+                            id="admin-users-body"
+                        >
 
-                    <div class="admin-icon">
-                        🗄️
-                    </div>
+                            <tr>
 
-                    <h3>Database</h3>
+                                <td
+                                    colspan="7"
+                                    class="empty-users"
+                                >
+                                    No users found
+                                </td>
 
-                    <p>
-                        Customer, product, chat and order records.
-                    </p>
+                            </tr>
+
+                        </tbody>
+
+                    </table>
 
                 </div>
 
@@ -650,56 +1544,82 @@
 </div>
 
 
-<script>
 
-    /* =========================
-       SIDEBAR NAVIGATION
-    ========================= */
+<!-- =========================================================
+     BASIC PAGE NAVIGATION
+========================================================= -->
+
+<script>
 
     function showSection(section, clickedButton) {
 
-        const sections = document.querySelectorAll(".page-section");
+        // Hide all sections
 
-        sections.forEach(function(item) {
-            item.classList.remove("active-section");
-        });
+        document
+            .querySelectorAll(".page-section")
+            .forEach(function(page) {
 
+                page.classList.remove("active");
+
+            });
+
+
+        // Show selected section
 
         const selectedSection =
-            document.getElementById(section + "-section");
+            document.getElementById(
+                section + "-section"
+            );
 
         if (selectedSection) {
-            selectedSection.classList.add("active-section");
+
+            selectedSection.classList.add("active");
+
         }
 
 
-        const buttons =
-            document.querySelectorAll(".nav-item");
+        // Remove active from navigation
 
-        buttons.forEach(function(button) {
-            button.classList.remove("active");
-        });
+        document
+            .querySelectorAll(".nav-button")
+            .forEach(function(button) {
 
+                button.classList.remove("active");
+
+            });
+
+
+        // Add active to clicked navigation
 
         if (clickedButton) {
+
             clickedButton.classList.add("active");
+
+        }
+
+
+        // Load admin users
+
+        if (section === "admin") {
+
+            if (typeof loadAdminUsers === "function") {
+
+                loadAdminUsers();
+
+            }
+
         }
 
     }
 
 
-    /* =========================
-       QUICK CHAT
-    ========================= */
 
     function quickMessage(message) {
 
         const input =
-            document.getElementById("message-input");
+            document.getElementById("chat-input");
 
-        if (!input) {
-            return;
-        }
+        if (!input) return;
 
         input.value = message;
 
@@ -707,7 +1627,9 @@
             document.getElementById("send-button");
 
         if (sendButton) {
+
             sendButton.click();
+
         }
 
     }
@@ -715,9 +1637,14 @@
 </script>
 
 
+
+<!-- =========================================================
+     CHAT JAVASCRIPT
+========================================================= -->
+
 <script src="chat.js"></script>
+
 
 </body>
 
 </html>
-

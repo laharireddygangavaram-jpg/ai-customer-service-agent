@@ -354,3 +354,303 @@ def perform_product_comparison(product_query):
     finally:
 
         connection.close()
+        # =========================================================
+# ADMIN - USERS MANAGEMENT
+# =========================================================
+
+def create_users_table():
+
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            email TEXT UNIQUE NOT NULL,
+            phone TEXT,
+            status TEXT DEFAULT 'Active',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    connection.commit()
+    connection.close()
+
+
+# =========================================================
+# GET ALL USERS - ADMIN
+# =========================================================
+
+@store_bp.route("/users", methods=["GET"])
+def get_users():
+
+    try:
+
+        create_users_table()
+
+        connection = get_connection()
+        cursor = connection.cursor()
+
+        cursor.execute("""
+            SELECT
+                id,
+                name,
+                email,
+                phone,
+                status,
+                created_at
+            FROM users
+            ORDER BY id DESC
+        """)
+
+        users = cursor.fetchall()
+
+        connection.close()
+
+        return jsonify({
+            "success": True,
+            "count": len(users),
+            "users": [dict(user) for user in users]
+        }), 200
+
+    except Exception as e:
+
+        return jsonify({
+            "success": False,
+            "error": "Unable to get users",
+            "message": str(e)
+        }), 500
+
+
+# =========================================================
+# GET SINGLE USER - ADMIN
+# =========================================================
+
+@store_bp.route("/users/<int:user_id>", methods=["GET"])
+def get_single_user(user_id):
+
+    try:
+
+        create_users_table()
+
+        connection = get_connection()
+        cursor = connection.cursor()
+
+        cursor.execute("""
+            SELECT
+                id,
+                name,
+                email,
+                phone,
+                status,
+                created_at
+            FROM users
+            WHERE id = ?
+        """, (user_id,))
+
+        user = cursor.fetchone()
+
+        connection.close()
+
+        if not user:
+
+            return jsonify({
+                "success": False,
+                "error": "User not found"
+            }), 404
+
+        return jsonify({
+            "success": True,
+            "user": dict(user)
+        }), 200
+
+    except Exception as e:
+
+        return jsonify({
+            "success": False,
+            "error": "Unable to get user",
+            "message": str(e)
+        }), 500
+
+
+# =========================================================
+# ADD USER - ADMIN
+# =========================================================
+
+@store_bp.route("/users", methods=["POST"])
+def add_user():
+
+    try:
+
+        data = request.get_json(silent=True) or {}
+
+        name = data.get("name", "").strip()
+        email = data.get("email", "").strip()
+        phone = data.get("phone", "").strip()
+
+        if not name or not email:
+
+            return jsonify({
+                "success": False,
+                "error": "Name and email are required"
+            }), 400
+
+        create_users_table()
+
+        connection = get_connection()
+        cursor = connection.cursor()
+
+        cursor.execute("""
+            SELECT id
+            FROM users
+            WHERE email = ?
+        """, (email,))
+
+        existing_user = cursor.fetchone()
+
+        if existing_user:
+
+            connection.close()
+
+            return jsonify({
+                "success": False,
+                "error": "User with this email already exists"
+            }), 409
+
+        cursor.execute("""
+            INSERT INTO users
+            (name, email, phone, status)
+            VALUES (?, ?, ?, ?)
+        """, (
+            name,
+            email,
+            phone,
+            "Active"
+        ))
+
+        connection.commit()
+
+        user_id = cursor.lastrowid
+
+        connection.close()
+
+        return jsonify({
+            "success": True,
+            "message": "User added successfully",
+            "user_id": user_id
+        }), 201
+
+    except Exception as e:
+
+        return jsonify({
+            "success": False,
+            "error": "Unable to add user",
+            "message": str(e)
+        }), 500
+
+
+# =========================================================
+# DELETE USER - ADMIN
+# =========================================================
+
+@store_bp.route("/users/<int:user_id>", methods=["DELETE"])
+def delete_user(user_id):
+
+    try:
+
+        create_users_table()
+
+        connection = get_connection()
+        cursor = connection.cursor()
+
+        cursor.execute("""
+            DELETE FROM users
+            WHERE id = ?
+        """, (user_id,))
+
+        deleted = cursor.rowcount
+
+        connection.commit()
+        connection.close()
+
+        if deleted == 0:
+
+            return jsonify({
+                "success": False,
+                "error": "User not found"
+            }), 404
+
+        return jsonify({
+            "success": True,
+            "message": "User deleted successfully"
+        }), 200
+
+    except Exception as e:
+
+        return jsonify({
+            "success": False,
+            "error": "Unable to delete user",
+            "message": str(e)
+        }), 500
+
+
+# =========================================================
+# UPDATE USER STATUS - ADMIN
+# =========================================================
+
+@store_bp.route("/users/<int:user_id>/status", methods=["PUT"])
+def update_user_status(user_id):
+
+    try:
+
+        data = request.get_json(silent=True) or {}
+
+        status = data.get("status", "").strip()
+
+        if status not in ["Active", "Inactive"]:
+
+            return jsonify({
+                "success": False,
+                "error": "Status must be Active or Inactive"
+            }), 400
+
+        create_users_table()
+
+        connection = get_connection()
+        cursor = connection.cursor()
+
+        cursor.execute("""
+            UPDATE users
+            SET status = ?
+            WHERE id = ?
+        """, (
+            status,
+            user_id
+        ))
+
+        updated = cursor.rowcount
+
+        connection.commit()
+        connection.close()
+
+        if updated == 0:
+
+            return jsonify({
+                "success": False,
+                "error": "User not found"
+            }), 404
+
+        return jsonify({
+            "success": True,
+            "message": "User status updated",
+            "status": status
+        }), 200
+
+    except Exception as e:
+
+        return jsonify({
+            "success": False,
+            "error": "Unable to update user status",
+            "message": str(e)
+        }), 500
